@@ -1,4 +1,4 @@
-import { verify } from "./crypto";
+import { verifyKey, InteractionType, InteractionResponseType } from "discord-interactions";
 
 const MAIN_GUILD_ID = "1477025023800901766";
 const OWNER_ID = "1513925512118931551";
@@ -77,21 +77,6 @@ function isStaff(memberRoles: string[]): boolean {
   return memberRoles.some((r) => STAFF_ROLES.includes(r));
 }
 
-function jsonResp(data: any, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function embedResp(type: 4 | 5, embed: any): Response {
-  return jsonResp({ type, data: { embeds: [embed] } });
-}
-
-function errorResp(msg: string): Response {
-  return jsonResp({ type: 4, data: { content: msg, flags: 64 } });
-}
-
 function interactionEmbed(title: string, color: number, fields: any[], footer?: string) {
   return {
     title,
@@ -104,7 +89,7 @@ function interactionEmbed(title: string, color: number, fields: any[], footer?: 
 
 // ==================== HANDLERS ====================
 
-async function handleBalance(db: D1Database, interaction: DiscordInteraction): Promise<Response> {
+async function handleBalance(db: D1Database, interaction: DiscordInteraction): Promise<any> {
   const targetOpt = interaction.data?.options?.find((o: any) => o.name === "user");
   const targetId = targetOpt?.value || interaction.member?.user?.id;
   const user = await ensureUser(db, targetId);
@@ -112,19 +97,24 @@ async function handleBalance(db: D1Database, interaction: DiscordInteraction): P
   const bar = makeBar(progress.current, progress.next);
   const isSelf = targetId === interaction.member?.user?.id;
 
-  return embedResp(4, interactionEmbed(
-    isSelf ? "Your Balance" : `Balance for <@${targetId}>`,
-    0x5865f2,
-    [
-      { name: "Level", value: `${progress.level}`, inline: true },
-      { name: "XP", value: `${user.xp}`, inline: true },
-      { name: "Coins", value: `${user.coins}`, inline: true },
-      { name: "Progress", value: `\`${bar}\` ${progress.current}/${progress.next} XP` },
-    ]
-  ));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed(
+        isSelf ? "Your Balance" : `Balance for <@${targetId}>`,
+        0x5865f2,
+        [
+          { name: "Level", value: `${progress.level}`, inline: true },
+          { name: "XP", value: `${user.xp}`, inline: true },
+          { name: "Coins", value: `${user.coins}`, inline: true },
+          { name: "Progress", value: `\`${bar}\` ${progress.current}/${progress.next} XP` },
+        ]
+      )],
+    },
+  };
 }
 
-async function handleDaily(db: D1Database, userId: string): Promise<Response> {
+async function handleDaily(db: D1Database, userId: string): Promise<any> {
   const user = await ensureUser(db, userId);
   const now = Date.now();
   const oneDayMs = 24 * 60 * 60 * 1000;
@@ -132,10 +122,15 @@ async function handleDaily(db: D1Database, userId: string): Promise<Response> {
 
   if (now - lastDaily < oneDayMs) {
     const next = new Date(lastDaily + oneDayMs);
-    return errorResp(`You already claimed today! Come back at <t:${Math.floor(next.getTime() / 1000)}:R>`);
+    return {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: `You already claimed today! Come back at <t:${Math.floor(next.getTime() / 1000)}:R>`,
+        flags: 64,
+      },
+    };
   }
 
-  const yesterday = now - oneDayMs;
   const streakBroken = now - lastDaily > 2 * oneDayMs;
   const newStreak = streakBroken ? 1 : (user.daily_streak || 0) + 1;
 
@@ -156,13 +151,20 @@ async function handleDaily(db: D1Database, userId: string): Promise<Response> {
   ];
   if (streakBonus > 0) fields.push({ name: "Streak Bonus", value: `+${streakBonus}`, inline: true });
 
-  return embedResp(4, interactionEmbed("Daily Reward Claimed!", 0x2ecc71, fields));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { embeds: [interactionEmbed("Daily Reward Claimed!", 0x2ecc71, fields)] },
+  };
 }
 
-async function handleCoinflip(db: D1Database, userId: string, amount: number, side: string): Promise<Response> {
-  if (amount <= 0) return errorResp("Amount must be positive!");
+async function handleCoinflip(db: D1Database, userId: string, amount: number, side: string): Promise<any> {
+  if (amount <= 0) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Amount must be positive!", flags: 64 } };
+  }
   const user = await ensureUser(db, userId);
-  if (user.coins < amount) return errorResp(`You only have ${user.coins} coins!`);
+  if (user.coins < amount) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: `You only have ${user.coins} coins!`, flags: 64 } };
+  }
 
   const result = Math.random() < 0.5 ? "heads" : "tails";
   const won = result === side;
@@ -174,22 +176,31 @@ async function handleCoinflip(db: D1Database, userId: string, amount: number, si
     .run();
 
   const color = won ? 0x2ecc71 : 0xe74c3c;
-  return embedResp(4, interactionEmbed(
-    won ? "You Won!" : "You Lost!",
-    color,
-    [
-      { name: "Your Bet", value: `${amount} coins on **${side}**`, inline: true },
-      { name: "Result", value: `**${result}**`, inline: true },
-      { name: "Outcome", value: won ? `+${amount} coins` : `-${amount} coins`, inline: true },
-      { name: "Balance", value: `${user.coins + winAmount} coins`, inline: true },
-    ]
-  ));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed(
+        won ? "You Won!" : "You Lost!",
+        color,
+        [
+          { name: "Your Bet", value: `${amount} coins on **${side}**`, inline: true },
+          { name: "Result", value: `**${result}**`, inline: true },
+          { name: "Outcome", value: won ? `+${amount} coins` : `-${amount} coins`, inline: true },
+          { name: "Balance", value: `${user.coins + winAmount} coins`, inline: true },
+        ]
+      )],
+    },
+  };
 }
 
-async function handleSlots(db: D1Database, userId: string, amount: number): Promise<Response> {
-  if (amount <= 0) return errorResp("Amount must be positive!");
+async function handleSlots(db: D1Database, userId: string, amount: number): Promise<any> {
+  if (amount <= 0) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Amount must be positive!", flags: 64 } };
+  }
   const user = await ensureUser(db, userId);
-  if (user.coins < amount) return errorResp(`You only have ${user.coins} coins!`);
+  if (user.coins < amount) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: `You only have ${user.coins} coins!`, flags: 64 } };
+  }
 
   const symbols = ["🍒", "🍋", "🍊", "🍇", "💎", "7️⃣"];
   const weights = [30, 25, 20, 15, 7, 3];
@@ -220,24 +231,31 @@ async function handleSlots(db: D1Database, userId: string, amount: number): Prom
   await db.prepare("UPDATE users SET coins = coins + ? WHERE user_id = ?").bind(net, userId).run();
 
   const slots = `[ ${s1} | ${s2} | ${s3} ]`;
-  return embedResp(4, interactionEmbed(
-    multiplier > 0 ? "Slot Machine Win!" : "Slot Machine Lose!",
-    multiplier > 0 ? 0x2ecc71 : 0xe74c3c,
-    [
-      { name: "Slots", value: `\`\`\`${slots}\`\`\``, inline: false },
-      { name: "Bet", value: `${amount} coins`, inline: true },
-      { name: "Multiplier", value: multiplier > 0 ? `${multiplier}x` : "0x", inline: true },
-      { name: "Net", value: net >= 0 ? `+${net}` : `${net}`, inline: true },
-      { name: "Balance", value: `${user.coins + net} coins`, inline: true },
-    ]
-  ));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed(
+        multiplier > 0 ? "Slot Machine Win!" : "Slot Machine Lose!",
+        multiplier > 0 ? 0x2ecc71 : 0xe74c3c,
+        [
+          { name: "Slots", value: `\`\`\`${slots}\`\`\``, inline: false },
+          { name: "Bet", value: `${amount} coins`, inline: true },
+          { name: "Multiplier", value: multiplier > 0 ? `${multiplier}x` : "0x", inline: true },
+          { name: "Net", value: net >= 0 ? `+${net}` : `${net}`, inline: true },
+          { name: "Balance", value: `${user.coins + net} coins`, inline: true },
+        ]
+      )],
+    },
+  };
 }
 
-async function handleLeaderboard(db: D1Database): Promise<Response> {
+async function handleLeaderboard(db: D1Database): Promise<any> {
   const rows = await db.prepare("SELECT user_id, xp, coins FROM users ORDER BY xp DESC LIMIT 10").all();
   const results = (rows.results || []) as any[];
 
-  if (results.length === 0) return errorResp("No users yet!");
+  if (results.length === 0) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "No users yet!", flags: 64 } };
+  }
 
   const fields = results.map((r: any, i: number) => {
     const medals = ["🥇", "🥈", "🥉"];
@@ -250,99 +268,128 @@ async function handleLeaderboard(db: D1Database): Promise<Response> {
     };
   });
 
-  return embedResp(4, interactionEmbed("Top 10 Leaderboard", 0xf1c40f, fields));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { embeds: [interactionEmbed("Top 10 Leaderboard", 0xf1c40f, fields)] },
+  };
 }
 
 // Staff commands
-async function handleSetXp(db: D1Database, interaction: DiscordInteraction): Promise<Response> {
+async function handleSetXp(db: D1Database, interaction: DiscordInteraction): Promise<any> {
   const memberRoles = interaction.member?.roles || [];
-  if (!isStaff(memberRoles)) return errorResp("Staff only!");
+  if (!isStaff(memberRoles)) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Staff only!", flags: 64 } };
+  }
 
   const targetId = interaction.data?.options?.find((o: any) => o.name === "user")?.value;
   const amount = interaction.data?.options?.find((o: any) => o.name === "amount")?.value;
-  if (!targetId || amount === undefined) return errorResp("Missing arguments!");
+  if (!targetId || amount === undefined) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Missing arguments!", flags: 64 } };
+  }
 
   await ensureUser(db, targetId);
   await db.prepare("UPDATE users SET xp = ? WHERE user_id = ?").bind(amount, targetId).run();
 
-  return embedResp(4, interactionEmbed("XP Set", 0x3498db, [
-    { name: "Target", value: `<@${targetId}>`, inline: true },
-    { name: "New XP", value: `${amount}`, inline: true },
-    { name: "Set By", value: `<@${interaction.member?.user?.id}>`, inline: true },
-  ]));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed("XP Set", 0x3498db, [
+        { name: "Target", value: `<@${targetId}>`, inline: true },
+        { name: "New XP", value: `${amount}`, inline: true },
+        { name: "Set By", value: `<@${interaction.member?.user?.id}>`, inline: true },
+      ])],
+    },
+  };
 }
 
-async function handleAddXp(db: D1Database, interaction: DiscordInteraction): Promise<Response> {
+async function handleAddXp(db: D1Database, interaction: DiscordInteraction): Promise<any> {
   const memberRoles = interaction.member?.roles || [];
-  if (!isStaff(memberRoles)) return errorResp("Staff only!");
+  if (!isStaff(memberRoles)) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Staff only!", flags: 64 } };
+  }
 
   const targetId = interaction.data?.options?.find((o: any) => o.name === "user")?.value;
   const amount = interaction.data?.options?.find((o: any) => o.name === "amount")?.value;
-  if (!targetId || amount === undefined) return errorResp("Missing arguments!");
+  if (!targetId || amount === undefined) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Missing arguments!", flags: 64 } };
+  }
 
   await ensureUser(db, targetId);
   await db.prepare("UPDATE users SET xp = xp + ? WHERE user_id = ?").bind(amount, targetId).run();
   const updated = await db.prepare("SELECT xp FROM users WHERE user_id = ?").bind(targetId).first<any>();
 
-  return embedResp(4, interactionEmbed("XP Added", 0x2ecc71, [
-    { name: "Target", value: `<@${targetId}>`, inline: true },
-    { name: "Added", value: `+${amount} XP`, inline: true },
-    { name: "New Total", value: `${updated?.xp || 0}`, inline: true },
-    { name: "By", value: `<@${interaction.member?.user?.id}>`, inline: true },
-  ]));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed("XP Added", 0x2ecc71, [
+        { name: "Target", value: `<@${targetId}>`, inline: true },
+        { name: "Added", value: `+${amount} XP`, inline: true },
+        { name: "New Total", value: `${updated?.xp || 0}`, inline: true },
+        { name: "By", value: `<@${interaction.member?.user?.id}>`, inline: true },
+      ])],
+    },
+  };
 }
 
-async function handleRemoveXp(db: D1Database, interaction: DiscordInteraction): Promise<Response> {
+async function handleRemoveXp(db: D1Database, interaction: DiscordInteraction): Promise<any> {
   const memberRoles = interaction.member?.roles || [];
-  if (!isStaff(memberRoles)) return errorResp("Staff only!");
+  if (!isStaff(memberRoles)) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Staff only!", flags: 64 } };
+  }
 
   const targetId = interaction.data?.options?.find((o: any) => o.name === "user")?.value;
   const amount = interaction.data?.options?.find((o: any) => o.name === "amount")?.value;
-  if (!targetId || amount === undefined) return errorResp("Missing arguments!");
+  if (!targetId || amount === undefined) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Missing arguments!", flags: 64 } };
+  }
 
   await ensureUser(db, targetId);
   await db.prepare("UPDATE users SET xp = MAX(0, xp - ?) WHERE user_id = ?").bind(amount, targetId).run();
   const updated = await db.prepare("SELECT xp FROM users WHERE user_id = ?").bind(targetId).first<any>();
 
-  return embedResp(4, interactionEmbed("XP Removed", 0xe74c3c, [
-    { name: "Target", value: `<@${targetId}>`, inline: true },
-    { name: "Removed", value: `-${amount} XP`, inline: true },
-    { name: "New Total", value: `${updated?.xp || 0}`, inline: true },
-    { name: "By", value: `<@${interaction.member?.user?.id}>`, inline: true },
-  ]));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed("XP Removed", 0xe74c3c, [
+        { name: "Target", value: `<@${targetId}>`, inline: true },
+        { name: "Removed", value: `-${amount} XP`, inline: true },
+        { name: "New Total", value: `${updated?.xp || 0}`, inline: true },
+        { name: "By", value: `<@${interaction.member?.user?.id}>`, inline: true },
+      ])],
+    },
+  };
 }
 
-async function handleSetCoins(db: D1Database, interaction: DiscordInteraction): Promise<Response> {
+async function handleSetCoins(db: D1Database, interaction: DiscordInteraction): Promise<any> {
   const memberRoles = interaction.member?.roles || [];
-  if (!isStaff(memberRoles)) return errorResp("Staff only!");
+  if (!isStaff(memberRoles)) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Staff only!", flags: 64 } };
+  }
 
   const targetId = interaction.data?.options?.find((o: any) => o.name === "user")?.value;
   const amount = interaction.data?.options?.find((o: any) => o.name === "amount")?.value;
-  if (!targetId || amount === undefined) return errorResp("Missing arguments!");
+  if (!targetId || amount === undefined) {
+    return { type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "Missing arguments!", flags: 64 } };
+  }
 
   await ensureUser(db, targetId);
   await db.prepare("UPDATE users SET coins = ? WHERE user_id = ?").bind(amount, targetId).run();
 
-  return embedResp(4, interactionEmbed("Coins Set", 0xf39c12, [
-    { name: "Target", value: `<@${targetId}>`, inline: true },
-    { name: "New Coins", value: `${amount}`, inline: true },
-    { name: "By", value: `<@${interaction.member?.user?.id}>`, inline: true },
-  ]));
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      embeds: [interactionEmbed("Coins Set", 0xf39c12, [
+        { name: "Target", value: `<@${targetId}>`, inline: true },
+        { name: "New Coins", value: `${amount}`, inline: true },
+        { name: "By", value: `<@${interaction.member?.user?.id}>`, inline: true },
+      ])],
+    },
+  };
 }
 
 // ==================== MAIN HANDLER ====================
 
-async function handleInteraction(env: Env, interaction: DiscordInteraction): Promise<Response> {
-  // Ping
-  if (interaction.type === 1) {
-    return jsonResp({ type: 1 });
-  }
-
-  // Slash command
-  if (interaction.type !== 2) {
-    return errorResp("Unknown interaction type");
-  }
-
+async function handleInteraction(env: Env, interaction: DiscordInteraction): Promise<any> {
   const name = interaction.data?.name;
 
   switch (name) {
@@ -370,7 +417,10 @@ async function handleInteraction(env: Env, interaction: DiscordInteraction): Pro
     case "setcoins":
       return handleSetCoins(env.astralyx_xp, interaction);
     default:
-      return errorResp("Unknown command.");
+      return {
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: "Unknown command.", flags: 64 },
+      };
   }
 }
 
@@ -391,16 +441,21 @@ export default {
         return new Response("Missing signature headers", { status: 401 });
       }
 
-      const isValid = await verify(env.DISCORD_PUBLIC_KEY, timestamp + body, signature);
+      const isValid = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
       if (!isValid) {
-        return new Response("Invalid signature", { status: 401 });
+        return new Response("Invalid request signature", { status: 401 });
       }
 
       const interaction = JSON.parse(body) as DiscordInteraction;
-      const response = await handleInteraction(env, interaction);
 
-      return new Response(response.body, {
-        status: response.status,
+      if (interaction.type === InteractionType.PING) {
+        return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const response = await handleInteraction(env, interaction);
+      return new Response(JSON.stringify(response), {
         headers: { "Content-Type": "application/json" },
       });
     }

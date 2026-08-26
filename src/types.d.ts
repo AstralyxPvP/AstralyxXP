@@ -8,6 +8,7 @@ interface Env {
 interface DiscordInteraction {
   id: string;
   type: number;
+  guild_id?: string;
   data?: {
     name: string;
     options?: Array<{
@@ -20,10 +21,14 @@ interface DiscordInteraction {
       id: string;
       username: string;
     };
+    roles?: string[];
   };
+  channel_id?: string;
+  token?: string;
+  application_id?: string;
 }
 
 interface InteractionResponse {
-  content: string;
+  body: string;
   status: number;
 }

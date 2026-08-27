@@ -29,7 +29,9 @@ export async function execute(interaction, env, ctx) {
                 return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             }
             
-            const result = Math.random() < 0.5 ? 'heads' : 'tails';
+            const buf = new Uint32Array(1);
+            crypto.getRandomValues(buf);
+            const result = buf[0] % 2 === 0 ? 'heads' : 'tails';
             const win = result === choice;
             
             let newXp;

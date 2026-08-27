@@ -2,6 +2,7 @@ import { addXP } from '../utils/db.js';
 import { checkLevelUp } from '../utils/levels.js';
 import { COLORS } from '../utils/embeds.js';
 import { sendChannelMessage, editMessage, ephemeralResponse, updateMessageResponse } from '../utils/discord.js';
+import { scheduleExpiry, disabledButton, pick } from './shared.js';
 
 const QUESTIONS = [
     { q: "What is the rarest ore in Minecraft?", options: ["Emerald", "Diamond", "Ancient Debris", "Lapis"], correct: 2 },
@@ -26,10 +27,10 @@ const QUESTIONS = [
 
 export async function createGame(interaction, env, ctx, xpReward) {
     const sessionId = crypto.randomUUID();
-    const expiresAt = Date.now() + 30000; // 30 seconds
     const channelId = interaction.channel_id;
+    const expiresAt = Date.now() + 30000;
 
-    const q = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+    const q = pick(QUESTIONS);
 
     const embed = {
         title: "🤔 Trivia Guessing Game!",
@@ -41,7 +42,7 @@ export async function createGame(interaction, env, ctx, xpReward) {
         type: 1,
         components: q.options.map((opt, i) => ({
             type: 2,
-            style: 2, // SECONDARY
+            style: 2,
             label: opt,
             custom_id: `game:guess:${sessionId}:${i}`
         }))
@@ -57,10 +58,12 @@ export async function createGame(interaction, env, ctx, xpReward) {
     }
 
     const state = JSON.stringify({ correctIndex: q.correct, answered: [], ended: false });
-    
+
     await env.astralyx_xp.prepare(
         "INSERT INTO minigame_sessions (id, channel_id, game_type, message_id, xp_reward, state, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(sessionId, channelId, 'guess', msg.id, xpReward, state, Date.now(), expiresAt).run();
+
+    scheduleExpiry(env, ctx, sessionId, expiresAt, endAndReward);
 
     return { content: `Guess game started in <#${channelId}>!`, flags: 64 };
 }
@@ -77,17 +80,21 @@ export async function handleComponent(interaction, env, ctx) {
             "SELECT * FROM minigame_sessions WHERE id = ?"
         ).bind(sessionId).first();
 
-        if (!session) return ephemeralResponse("This game session no longer exists.");
+        if (!session) return ephemeralResponse("This game has already ended.");
 
         let state = JSON.parse(session.state);
 
-        if (state.ended || Date.now() > session.expires_at) {
-            if (!state.ended) {
-                state.ended = true;
-                await endAndReward(session, state, env);
-                return updateMessageResponse({ components: disableComponents(interaction.message.components) });
-            }
+        if (state.ended) {
             return ephemeralResponse("This game has already ended!");
+        }
+
+        if (Date.now() > session.expires_at) {
+            state.ended = true;
+            await env.astralyx_xp.prepare(
+                "UPDATE minigame_sessions SET state = ? WHERE id = ?"
+            ).bind(JSON.stringify(state), sessionId).run();
+            await endAndReward(session, state, env);
+            return updateMessageResponse({ components: disabledButton("🤔 Guess", `game:guess:${session.id}:0`) });
         }
 
         if (state.answered.find(a => a.id === userId)) {
@@ -98,7 +105,7 @@ export async function handleComponent(interaction, env, ctx) {
         state.answered.push({ id: userId, username, correct: isCorrect, timestamp: Date.now() });
 
         const correctAnswers = state.answered.filter(a => a.correct).length;
-        
+
         if (correctAnswers >= 5) {
             state.ended = true;
         }
@@ -109,14 +116,10 @@ export async function handleComponent(interaction, env, ctx) {
 
         if (state.ended) {
             await endAndReward(session, state, env);
-            return updateMessageResponse({ components: disableComponents(interaction.message.components) });
+            return updateMessageResponse({ components: disabledButton("🤔 Guess", `game:guess:${session.id}:0`) });
         }
 
-        if (isCorrect) {
-            return ephemeralResponse("✅ Correct! You will receive your XP when the game ends.");
-        } else {
-            return ephemeralResponse("❌ Wrong! Better luck next time.");
-        }
+        return ephemeralResponse(isCorrect ? "✅ Correct! Submit another answer for more chances." : "❌ Wrong! Better luck next time.");
     } catch (e) {
         console.error(e);
         return ephemeralResponse("Something went wrong.");
@@ -125,52 +128,44 @@ export async function handleComponent(interaction, env, ctx) {
 
 async function endAndReward(session, state, env) {
     const correctPlayers = state.answered.filter(a => a.correct).sort((a, b) => a.timestamp - b.timestamp);
-    
-    let description = "The game has ended! Here are the winners:\n\n";
-    
+
     const { getUser } = await import('../utils/db.js');
 
+    let results;
     if (correctPlayers.length === 0) {
-        description = "Nobody got it right! Better luck next time.";
+        results = "Nobody got it right! Better luck next time.";
     } else {
+        const lines = [];
         for (let i = 0; i < correctPlayers.length; i++) {
             const p = correctPlayers[i];
-            let earned = i === 0 ? session.xp_reward : Math.floor(session.xp_reward * 0.9);
-            
+            const earned = i === 0 ? session.xp_reward : Math.floor(session.xp_reward * 0.9);
+
             const userBefore = await getUser(env.astralyx_xp, p.id);
             const oldXp = userBefore.xp;
 
             await addXP(env.astralyx_xp, p.id, earned);
             const newXp = oldXp + earned;
             const levelUp = checkLevelUp(oldXp, newXp);
-            
-            description += `${i === 0 ? '🥇' : '✅'} <@${p.id}> earned **${earned} XP**!\n`;
-            
+
+            lines.push(`${i === 0 ? '🥇' : '✅'} <@${p.id}> earned **${earned} XP**!`);
+
             if (levelUp && levelUp.newLevel > levelUp.oldLevel) {
                 await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
                     content: `🎉 Congratulations <@${p.id}>! You reached **Level ${levelUp.newLevel}**! 🚀`
                 });
             }
         }
+        results = lines.join('\n');
     }
 
     await env.astralyx_xp.prepare("DELETE FROM minigame_sessions WHERE id = ?").bind(session.id).run();
-    
+
     await editMessage(env.DISCORD_TOKEN, session.channel_id, session.message_id, {
         embeds: [{
             title: "🤔 Trivia Guessing Game Ended!",
-            description: description,
+            description: results,
             color: COLORS.SUCCESS
-        }]
+        }],
+        components: disabledButton("🤔 Guess", `game:guess:${session.id}:0`)
     });
-}
-
-function disableComponents(components) {
-    return components.map(row => ({
-        ...row,
-        components: row.components.map(btn => ({
-            ...btn,
-            disabled: true
-        }))
-    }));
 }

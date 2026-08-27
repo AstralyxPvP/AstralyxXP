@@ -51,8 +51,9 @@ export async function sendChannelMessage(botToken, channelId, data) {
   });
   if (!res.ok) {
     console.error(`sendChannelMessage failed: ${res.status} ${await res.text()}`);
+    return null;
   }
-  return res;
+  return res.json();
 }
 
 /**

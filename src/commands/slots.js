@@ -26,9 +26,11 @@ export async function execute(interaction, env, ctx) {
                 return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             }
             
-            const s1 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-            const s2 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-            const s3 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+            const buf = new Uint32Array(3);
+            crypto.getRandomValues(buf);
+            const s1 = SYMBOLS[buf[0] % SYMBOLS.length];
+            const s2 = SYMBOLS[buf[1] % SYMBOLS.length];
+            const s3 = SYMBOLS[buf[2] % SYMBOLS.length];
             
             let winAmount = -amount;
             let color = COLORS.ERROR;
@@ -39,9 +41,8 @@ export async function execute(interaction, env, ctx) {
                 color = COLORS.SUCCESS;
                 message = `**JACKPOT!** You won 5x your bet (**${winAmount} XP**)!`;
             } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-                winAmount = amount * 2;
-                color = COLORS.SUCCESS;
-                message = `You won 2x your bet (**${winAmount} XP**)!`;
+                color = COLORS.INFO;
+                message = "So close! Two matched, but the jackpot needs all three.";
             } else {
                 message = `You lost **${amount} XP**. Better luck next time!`;
             }

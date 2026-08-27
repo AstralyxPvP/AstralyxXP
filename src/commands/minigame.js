@@ -1,6 +1,7 @@
 import { isStaff } from '../utils/staff.js';
 import { deferredResponse, ephemeralResponse, patchOriginal } from '../utils/discord.js';
 import { COLORS, xpEmbed } from '../utils/embeds.js';
+import { pick } from '../games/shared.js';
 
 const GAMES = ['raining_xp', 'guess', 'fallen_xp', 'ladders', 'luck_duck'];
 
@@ -11,8 +12,8 @@ export async function execute(interaction, env, ctx) {
     
     ctx.waitUntil((async () => {
         try {
-            const gameType = GAMES[Math.floor(Math.random() * GAMES.length)];
-            const xpReward = Math.floor(Math.random() * 41) + 10; // 10 to 50
+            const gameType = pick(GAMES);
+            const xpReward = (() => { const b = new Uint32Array(1); crypto.getRandomValues(b); return (b[0] % 41) + 10; })();
             
             // Dynamic import the game module
             // We use static imports conceptually, but since filenames have hyphens let's map them

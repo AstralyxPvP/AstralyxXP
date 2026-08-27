@@ -1,0 +1,13 @@
+# AstralyxPvP XP API configuration
+# XP is the Discord ENGAGEMENT track (minigames, dailies, coinflip).
+# ELO (kills/bounties) is handled elsewhere — this plugin never touches it.
+#
+# Endpoints (all require: Authorization: Bearer <api-secret>):
+#   GET  /api/linked/:uuid         -> resolves a Minecraft player to their linked Discord account
+#   GET  /api/xp/:discordId        -> the linked account's XP / level / progress
+#   GET  /api/leaderboard?limit=N  -> top XP earners
+api-base-url: "https://astralyx-xp-bot.indiancoder3.workers.dev"
+api-secret: "REPLACE_WITH_WORKER_API_SECRET"
+
+# Message shown to unlinked players.
+link-prompt: "&cYou must link your Discord account first. Run &e/linkaccount &cand then &e/link <username> <code> &cin Discord."

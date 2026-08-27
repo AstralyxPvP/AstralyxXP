@@ -1,0 +1,14 @@
+name: AstralyxXP
+version: '1.0.0'
+main: com.astralyxpvp.AstralyxXP
+api-version: '1.21'
+description: In-game XP commands backed by the AstralyxPvP worker API, gated behind Discord account linking.
+author: AstralyxPvP
+commands:
+  xp:
+    description: View your Astralyx XP, level and progress toward the next level.
+    usage: /xp
+  leaderboard:
+    description: View the top Astralyx XP earners.
+    usage: /leaderboard [limit]
+    aliases: [lb, top]

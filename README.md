@@ -23,7 +23,7 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
 
 ## 🎮 Features
 
-- **Level system** — 0 → 15 with rising XP thresholds (extendable to 50).
+- **Level system** — 50 levels (level 1 = 100 XP) with rising XP thresholds.
 - **Daily rewards** — XP every 24h with streak bonuses that grow over time.
 - **Minigames** — the bot launches random XP events when chat activity spikes (10+ messages/minute):
   - Raining XP

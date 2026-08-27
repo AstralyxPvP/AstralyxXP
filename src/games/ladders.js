@@ -46,87 +46,102 @@ export async function handleComponent(interaction, env, ctx) {
     const userId = interaction.member?.user?.id || interaction.user?.id;
     const username = interaction.member?.user?.username || interaction.user?.username;
 
-    const session = await env.astralyx_xp.prepare(
-        "SELECT * FROM minigame_sessions WHERE id = ?"
-    ).bind(sessionId).first();
+    try {
+        const session = await env.astralyx_xp.prepare(
+            "SELECT * FROM minigame_sessions WHERE id = ?"
+        ).bind(sessionId).first();
 
-    if (!session) return ephemeralResponse("This game session no longer exists.");
+        if (!session) return ephemeralResponse("This game session no longer exists.");
 
-    let state = JSON.parse(session.state);
+        let state = JSON.parse(session.state);
 
-    if (state.ended || Date.now() > session.expires_at) {
-        if (!state.ended) {
-            state.ended = true;
-            await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), sessionId).run();
+        if (state.ended || Date.now() > session.expires_at) {
+            if (!state.ended) {
+                state.ended = true;
+                await env.astralyx_xp.prepare("DELETE FROM minigame_sessions WHERE id = ?").bind(sessionId).run();
+            }
+            return updateMessageResponse({ components: disableComponents(interaction.message.components) });
         }
-        return updateMessageResponse({ components: disableComponents(interaction.message.components) });
-    }
 
-    if (!state.players[userId]) {
-        state.players[userId] = { position: 0, name: username, lastRoll: 0 };
-    }
-
-    const player = state.players[userId];
-    
-    // Cooldown check (prevent spam)
-    if (Date.now() - player.lastRoll < 2000) {
-        return ephemeralResponse("Please wait a moment before rolling again! ⏳");
-    }
-    
-    const roll = Math.floor(Math.random() * 3) + 1; // 1 to 3
-    player.position += roll;
-    player.lastRoll = Date.now();
-    let slip = false;
-
-    if (player.position === 4) {
-        if (Math.random() < 0.33) {
-            player.position = 2; // Snake!
-            slip = true;
+        if (!state.players[userId]) {
+            state.players[userId] = { position: 0, name: username, lastRoll: 0 };
         }
-    }
 
-    let winner = null;
-    if (player.position >= 5) {
-        player.position = 5;
-        state.ended = true;
-        winner = userId;
-    }
-
-    await env.astralyx_xp.prepare(
-        "UPDATE minigame_sessions SET state = ? WHERE id = ?"
-    ).bind(JSON.stringify(state), sessionId).run();
-
-    if (winner) {
-        await addXP(env.astralyx_xp, winner, session.xp_reward);
-        const levelUp = await checkLevelUp(env.astralyx_xp, winner);
+        const player = state.players[userId];
         
-        if (levelUp.leveledUp) {
-            await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
-                content: `🎉 Congratulations <@${winner}>! You reached **Level ${levelUp.newLevel}**! 🚀`
+        // Cooldown check (prevent spam)
+        if (Date.now() - player.lastRoll < 2000) {
+            return ephemeralResponse("Please wait a moment before rolling again! ⏳");
+        }
+        
+        const roll = Math.floor(Math.random() * 3) + 1; // 1 to 3
+        player.position += roll;
+        player.lastRoll = Date.now();
+        let slip = false;
+
+        if (player.position === 4) {
+            if (Math.random() < 0.33) {
+                player.position = 2; // Snake!
+                slip = true;
+            }
+        }
+
+        let winner = null;
+        if (player.position >= 5) {
+            player.position = 5;
+            state.ended = true;
+            winner = userId;
+        }
+
+        if (state.ended) {
+            await env.astralyx_xp.prepare("DELETE FROM minigame_sessions WHERE id = ?").bind(sessionId).run();
+        } else {
+            await env.astralyx_xp.prepare(
+                "UPDATE minigame_sessions SET state = ? WHERE id = ?"
+            ).bind(JSON.stringify(state), sessionId).run();
+        }
+
+        if (winner) {
+            const { getUser } = await import('../utils/db.js');
+            const userBefore = await getUser(env.astralyx_xp, winner);
+            const oldXp = userBefore.xp;
+
+            await addXP(env.astralyx_xp, winner, session.xp_reward);
+            const newXp = oldXp + session.xp_reward;
+            
+            const levelUp = checkLevelUp(oldXp, newXp);
+            
+            if (levelUp && levelUp.newLevel > levelUp.oldLevel) {
+                await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
+                    content: `🎉 Congratulations <@${winner}>! You reached **Level ${levelUp.newLevel}**! 🚀`
+                });
+            }
+
+            return updateMessageResponse({
+                embeds: [{
+                    title: "🪜 Ladders Game Ended!",
+                    description: `🏆 <@${winner}> reached the top and won **${session.xp_reward} XP**!\n\n${renderLadders(state.players)}`,
+                    color: COLORS.SUCCESS
+                }],
+                components: disableComponents(interaction.message.components)
             });
         }
 
+        let statusMsg = `<@${userId}> rolled a **${roll}**!`;
+        if (slip) statusMsg += ` Oh no! You slipped down to step 2! 🐍`;
+
         return updateMessageResponse({
             embeds: [{
-                title: "🪜 Ladders Game Ended!",
-                description: `🏆 <@${winner}> reached the top and won **${session.xp_reward} XP**!\n\n${renderLadders(state.players)}`,
-                color: COLORS.success
+                title: "🪜 Ladders Game!",
+                description: `${statusMsg}\n\n**Prize:** ${session.xp_reward} XP\n\n${renderLadders(state.players)}`,
+                color: COLORS.INFO
             }],
-            components: disableComponents(interaction.message.components)
+            components: interaction.message.components
         });
+    } catch (e) {
+        console.error(e);
+        return ephemeralResponse("Something went wrong.");
     }
-
-    let statusMsg = `<@${userId}> rolled a **${roll}**!`;
-    if (slip) statusMsg += ` Oh no! You slipped down to step 2! 🐍`;
-
-    return updateMessageResponse({
-        embeds: [{
-            title: "🪜 Ladders Game!",
-            description: `${statusMsg}\n\n**Prize:** ${session.xp_reward} XP\n\n${renderLadders(state.players)}`,
-            color: COLORS.primary
-        }],
-        components: interaction.message.components
-    });
 }
 
 function renderLadders(players) {

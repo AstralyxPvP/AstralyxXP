@@ -48,7 +48,7 @@ export function getProgress(xp) {
 export function checkLevelUp(oldXP, newXP) {
   const oldLevel = getLevel(oldXP);
   const newLevel = getLevel(newXP);
-  if (newLevel > oldLevel) {
+  if (newLevel !== oldLevel) {
     return { oldLevel, newLevel };
   }
   return null;

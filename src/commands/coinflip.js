@@ -11,48 +11,53 @@ export async function execute(interaction, env, ctx) {
     const choice = choiceOpt.value.toLowerCase();
     
     if (amount < 10 || amount > 5000) {
-        return ephemeralResponse({ content: "Amount must be between 10 and 5000 XP." });
+        return ephemeralResponse("Amount must be between 10 and 5000 XP.");
     }
     if (choice !== 'heads' && choice !== 'tails') {
-        return ephemeralResponse({ content: "Choice must be 'heads' or 'tails'." });
+        return ephemeralResponse("Choice must be 'heads' or 'tails'.");
     }
     
     const userId = interaction.member.user.id;
     
     ctx.waitUntil((async () => {
-        await ensureUser(env.astralyx_xp, userId);
-        const user = await getUser(env.astralyx_xp, userId);
-        
-        if (user.xp < amount) {
-            const embed = xpEmbed('Coinflip Failed', `You don't have enough XP. You only have ${user.xp} XP.`, COLORS.error);
-            return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
+        try {
+            await ensureUser(env.astralyx_xp, userId);
+            const user = await getUser(env.astralyx_xp, userId);
+            
+            if (user.xp < amount) {
+                const embed = xpEmbed('Coinflip Failed', `You don't have enough XP. You only have ${user.xp} XP.`, [], COLORS.ERROR);
+                return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
+            }
+            
+            const result = Math.random() < 0.5 ? 'heads' : 'tails';
+            const win = result === choice;
+            
+            let newXp;
+            let desc;
+            if (win) {
+                newXp = user.xp + amount;
+                await addXP(env.astralyx_xp, userId, amount);
+                desc = `It landed on **${result}**!\nYou won **${amount} XP**! 🎉\nNew balance: ${newXp} XP`;
+            } else {
+                newXp = user.xp - amount;
+                await setXP(env.astralyx_xp, userId, newXp);
+                desc = `It landed on **${result}**.\nYou lost **${amount} XP**. 😢\nNew balance: ${newXp} XP`;
+            }
+            
+            let levelUpResult = null;
+            if (win) {
+                levelUpResult = checkLevelUp(user.xp, newXp);
+            }
+            if (levelUpResult) {
+                desc += `\n\n🎉 **LEVEL UP!** You are now level **${levelUpResult.newLevel}**! 🎉`;
+            }
+            
+            const embed = xpEmbed('Coinflip', desc, [], win ? COLORS.SUCCESS : COLORS.ERROR);
+            await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
+        } catch (e) {
+            console.error(e);
+            await patchOriginal(interaction.application_id, interaction.token, { content: "Something went wrong." });
         }
-        
-        const result = Math.random() < 0.5 ? 'heads' : 'tails';
-        const win = result === choice;
-        
-        let newXp;
-        let desc;
-        if (win) {
-            newXp = user.xp + amount;
-            await addXP(env.astralyx_xp, userId, amount);
-            desc = `It landed on **${result}**!\nYou won **${amount} XP**! 🎉\nNew balance: ${newXp} XP`;
-        } else {
-            newXp = user.xp - amount;
-            await setXP(env.astralyx_xp, userId, newXp);
-            desc = `It landed on **${result}**.\nYou lost **${amount} XP**. 😢\nNew balance: ${newXp} XP`;
-        }
-        
-        let levelUpResult = null;
-        if (win) {
-            levelUpResult = await checkLevelUp(env.astralyx_xp, userId, user.xp, newXp);
-        }
-        if (levelUpResult && levelUpResult.leveledUp) {
-            desc += `\n\n🎉 **LEVEL UP!** You are now level **${levelUpResult.newLevel}**! 🎉`;
-        }
-        
-        const embed = xpEmbed('Coinflip', desc, win ? COLORS.success : COLORS.error);
-        await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
     })());
     
     return deferredResponse();

@@ -50,47 +50,101 @@ export async function handleComponent(interaction, env, ctx) {
     const index = parseInt(parts[3], 10);
     const userId = interaction.member?.user?.id || interaction.user?.id;
 
-    const session = await env.astralyx_xp.prepare(
-        "SELECT * FROM minigame_sessions WHERE id = ?"
-    ).bind(sessionId).first();
+    try {
+        const session = await env.astralyx_xp.prepare(
+            "SELECT * FROM minigame_sessions WHERE id = ?"
+        ).bind(sessionId).first();
 
-    if (!session) return ephemeralResponse("This game session no longer exists.");
+        if (!session) return ephemeralResponse("This game session no longer exists.");
 
-    let state = JSON.parse(session.state);
+        let state = JSON.parse(session.state);
 
-    if (state.ended || Date.now() > session.expires_at) {
-        if (!state.ended) {
-            state.ended = true;
-            await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), sessionId).run();
+        if (state.ended || Date.now() > session.expires_at) {
+            if (!state.ended) {
+                state.ended = true;
+                await endAndReward(session, state, env);
+            }
+            return ephemeralResponse("This game has already ended!");
         }
-        return ephemeralResponse("This game has already ended!");
-    }
 
-    if (state.guesses.find(g => g.id === userId)) {
-        return ephemeralResponse("You already guessed!");
-    }
+        if (state.guesses.find(g => g.id === userId)) {
+            return ephemeralResponse("You already guessed!");
+        }
 
-    const isCorrect = index === state.duckIndex;
-    state.guesses.push({ id: userId, index, correct: isCorrect, timestamp: Date.now() });
+        const isCorrect = index === state.duckIndex;
+        state.guesses.push({ id: userId, index, correct: isCorrect, timestamp: Date.now() });
 
-    if (isCorrect && !state.found) {
-        state.found = true;
-        
-        // Update DB to end in 10 seconds
-        await env.astralyx_xp.prepare(
-            "UPDATE minigame_sessions SET state = ?, expires_at = ? WHERE id = ?"
-        ).bind(JSON.stringify(state), Date.now() + 10000, sessionId).run();
-        
-        return ephemeralResponse("🦆 Quack! You found it! You will receive your XP when the game ends in 10s.");
-    } else if (isCorrect) {
-        // Someone else already found it, they also guessed correctly
+        if (isCorrect && !state.found) {
+            state.found = true;
+            
+            await env.astralyx_xp.prepare(
+                "UPDATE minigame_sessions SET state = ?, expires_at = ? WHERE id = ?"
+            ).bind(JSON.stringify(state), Date.now() + 10000, sessionId).run();
+            
+            ctx.waitUntil((async () => {
+                await new Promise(r => setTimeout(r, 10000));
+                const finalSession = await env.astralyx_xp.prepare("SELECT * FROM minigame_sessions WHERE id = ?").bind(sessionId).first();
+                if (finalSession) {
+                    let finalState = JSON.parse(finalSession.state);
+                    if (!finalState.ended) {
+                        finalState.ended = true;
+                        await endAndReward(finalSession, finalState, env);
+                    }
+                }
+            })());
+            
+            return ephemeralResponse("🦆 Quack! You found it! You will receive your XP when the game ends in 10s.");
+        } else if (isCorrect) {
+            await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), sessionId).run();
+            return ephemeralResponse("🦆 Quack! You found it! You'll get partial XP.");
+        }
+
         await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), sessionId).run();
-        return ephemeralResponse("🦆 Quack! You found it! You'll get partial XP.");
+        return ephemeralResponse("No duck here! 🚫");
+    } catch (e) {
+        console.error(e);
+        return ephemeralResponse("Something went wrong.");
     }
-
-    await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), sessionId).run();
-    return ephemeralResponse("No duck here! 🚫");
 }
 
-// Background cleanup worker or similar should end the game. Since we can't do cron jobs natively in response,
-// we rely on the next click or an explicit sweep to end games.
+async function endAndReward(session, state, env) {
+    const correctPlayers = state.guesses.filter(g => g.correct).sort((a, b) => a.timestamp - b.timestamp);
+    
+    let description = "The game has ended! Here are the finders:\n\n";
+    
+    const { getUser } = await import('../utils/db.js');
+
+    if (correctPlayers.length === 0) {
+        description = "Nobody found the duck! 🦆";
+    } else {
+        for (let i = 0; i < correctPlayers.length; i++) {
+            const p = correctPlayers[i];
+            let earned = i === 0 ? session.xp_reward : Math.floor(session.xp_reward * 0.8);
+            
+            const userBefore = await getUser(env.astralyx_xp, p.id);
+            const oldXp = userBefore.xp;
+
+            await addXP(env.astralyx_xp, p.id, earned);
+            const newXp = oldXp + earned;
+            const levelUp = checkLevelUp(oldXp, newXp);
+            
+            description += `${i === 0 ? '🥇' : '🦆'} <@${p.id}> found the duck and earned **${earned} XP**!\n`;
+            
+            if (levelUp && levelUp.newLevel > levelUp.oldLevel) {
+                await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
+                    content: `🎉 Congratulations <@${p.id}>! You reached **Level ${levelUp.newLevel}**! 🚀`
+                });
+            }
+        }
+    }
+
+    await env.astralyx_xp.prepare("DELETE FROM minigame_sessions WHERE id = ?").bind(session.id).run();
+    
+    await editMessage(env.DISCORD_TOKEN, session.channel_id, session.message_id, {
+        embeds: [{
+            title: "🦆 Luck Duck Ended!",
+            description: description,
+            color: COLORS.SUCCESS
+        }]
+    });
+}

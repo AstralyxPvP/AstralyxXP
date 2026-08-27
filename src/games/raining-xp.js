@@ -49,59 +49,54 @@ export async function handleComponent(interaction, env, ctx) {
     const userId = interaction.member?.user?.id || interaction.user?.id;
     const username = interaction.member?.user?.username || interaction.user?.username;
 
-    const session = await env.astralyx_xp.prepare(
-        "SELECT * FROM minigame_sessions WHERE id = ?"
-    ).bind(sessionId).first();
+    try {
+        const session = await env.astralyx_xp.prepare(
+            "SELECT * FROM minigame_sessions WHERE id = ?"
+        ).bind(sessionId).first();
 
-    if (!session) {
-        return ephemeralResponse("This game session no longer exists.");
-    }
-
-    let state = JSON.parse(session.state);
-    
-    // Check if ended
-    if (state.ended || Date.now() > session.expires_at) {
-        if (!state.ended) {
-            state.ended = true;
-            await endAndReward(session, state, env);
-            return updateMessageResponse({
-                components: disableComponents(interaction.message.components)
-            });
+        if (!session) {
+            return ephemeralResponse("This game session no longer exists.");
         }
-        return ephemeralResponse("This game has already ended!");
+
+        let state = JSON.parse(session.state);
+        
+        // Check if ended
+        if (state.ended || Date.now() > session.expires_at) {
+            if (!state.ended) {
+                state.ended = true;
+                await endAndReward(session, state, env);
+                return updateMessageResponse({
+                    components: disableComponents(interaction.message.components)
+                });
+            }
+            return ephemeralResponse("This game has already ended!");
+        }
+
+        if (state.collectors.find(c => c.id === userId)) {
+            return ephemeralResponse("You have already collected the drops! ☔");
+        }
+
+        state.collectors.push({ id: userId, username, timestamp: Date.now() });
+
+        await env.astralyx_xp.prepare(
+            "UPDATE minigame_sessions SET state = ? WHERE id = ?"
+        ).bind(JSON.stringify(state), sessionId).run();
+
+        return ephemeralResponse("✅ Collected!");
+    } catch (e) {
+        console.error(e);
+        return ephemeralResponse("Something went wrong.");
     }
-
-    if (state.collectors.find(c => c.id === userId)) {
-        return ephemeralResponse("You have already collected the drops! ☔");
-    }
-
-    state.collectors.push({ id: userId, username, timestamp: Date.now() });
-
-    await env.astralyx_xp.prepare(
-        "UPDATE minigame_sessions SET state = ? WHERE id = ?"
-    ).bind(JSON.stringify(state), sessionId).run();
-
-    // Since it's time-based, we'll let it end when a background task or next click discovers it's expired.
-    // If it's expired right after this click, we end it.
-    if (Date.now() > session.expires_at) {
-        state.ended = true;
-        await endAndReward(session, state, env);
-        return updateMessageResponse({
-            components: disableComponents(interaction.message.components)
-        });
-    }
-
-    return ephemeralResponse("✅ Collected!");
 }
 
 async function endAndReward(session, state, env) {
     if (state.collectors.length === 0) {
-        await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), session.id).run();
+        await env.astralyx_xp.prepare("DELETE FROM minigame_sessions WHERE id = ?").bind(session.id).run();
         await editMessage(env.DISCORD_TOKEN, session.channel_id, session.message_id, {
             embeds: [{
                 title: "☔ Raining XP Ended",
                 description: "Nobody caught the drops! Better luck next time.",
-                color: COLORS.secondary
+                color: COLORS.INFO
             }],
             components: disableComponentsFromDb(session)
         });
@@ -113,30 +108,36 @@ async function endAndReward(session, state, env) {
     
     let description = "Here are the results!\n\n";
     
+    const { getUser } = await import('../utils/db.js');
+
     for (let i = 0; i < state.collectors.length; i++) {
         const c = state.collectors[i];
         let earned = i === 0 ? session.xp_reward : Math.floor(session.xp_reward * 0.6);
         
+        const userBefore = await getUser(env.astralyx_xp, c.id);
+        const oldXp = userBefore.xp;
+
         await addXP(env.astralyx_xp, c.id, earned);
-        const levelUp = await checkLevelUp(env.astralyx_xp, c.id);
+        const newXp = oldXp + earned;
+        const levelUp = checkLevelUp(oldXp, newXp);
         
         description += `${i === 0 ? '🥇' : '💧'} <@${c.id}> caught **${earned} XP**!\n`;
         
-        if (levelUp.leveledUp) {
+        if (levelUp && levelUp.newLevel > levelUp.oldLevel) {
             await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
                 content: `🎉 Congratulations <@${c.id}>! You reached **Level ${levelUp.newLevel}**! 🚀`
             });
         }
     }
 
-    await env.astralyx_xp.prepare("UPDATE minigame_sessions SET state = ? WHERE id = ?").bind(JSON.stringify(state), session.id).run();
+    await env.astralyx_xp.prepare("DELETE FROM minigame_sessions WHERE id = ?").bind(session.id).run();
     await editMessage(env.DISCORD_TOKEN, session.channel_id, session.message_id, {
         embeds: [{
             title: "☔ Raining XP Ended!",
             description: description,
-            color: COLORS.success
+            color: COLORS.SUCCESS
         }],
-        components: disableComponentsFromDb(session) // Note: Need original msg components or construct them disabled
+        components: disableComponentsFromDb(session) 
     });
 }
 

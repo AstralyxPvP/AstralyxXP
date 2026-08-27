@@ -45,49 +45,60 @@ export async function handleComponent(interaction, env, ctx) {
     const sessionId = parts[2];
     const userId = interaction.member?.user?.id || interaction.user?.id;
 
-    const session = await env.astralyx_xp.prepare(
-        "SELECT * FROM minigame_sessions WHERE id = ?"
-    ).bind(sessionId).first();
+    try {
+        const session = await env.astralyx_xp.prepare(
+            "SELECT * FROM minigame_sessions WHERE id = ?"
+        ).bind(sessionId).first();
 
-    if (!session) return ephemeralResponse("This game session no longer exists.");
+        if (!session) return ephemeralResponse("This game session no longer exists.");
 
-    let state = JSON.parse(session.state);
+        let state = JSON.parse(session.state);
 
-    if (state.ended) {
-        return ephemeralResponse("Better luck next time! 🍀");
-    }
+        if (state.ended) {
+            return ephemeralResponse("Better luck next time! 🍀");
+        }
 
-    state.ended = true;
-    state.winner = userId;
+        state.ended = true;
+        state.winner = userId;
 
-    await env.astralyx_xp.prepare(
-        "UPDATE minigame_sessions SET state = ?, winner_id = ? WHERE id = ?"
-    ).bind(JSON.stringify(state), userId, sessionId).run();
+        await env.astralyx_xp.prepare(
+            "DELETE FROM minigame_sessions WHERE id = ?"
+        ).bind(sessionId).run();
 
-    await addXP(env.astralyx_xp, userId, session.xp_reward);
-    const levelUp = await checkLevelUp(env.astralyx_xp, userId);
+        const { getUser } = await import('../utils/db.js');
+        const userBefore = await getUser(env.astralyx_xp, userId);
+        const oldXp = userBefore.xp;
 
-    if (levelUp.leveledUp) {
-        await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
-            content: `🎉 Congratulations <@${userId}>! You reached **Level ${levelUp.newLevel}**! 🚀`
-        });
-    }
+        await addXP(env.astralyx_xp, userId, session.xp_reward);
+        const newXp = oldXp + session.xp_reward;
+        
+        const levelUp = checkLevelUp(oldXp, newXp);
 
-    return updateMessageResponse({
-        embeds: [{
-            title: "💫 XP Caught!",
-            description: `<@${userId}> was the fastest and grabbed **${session.xp_reward} XP**! ⚡`,
-            color: COLORS.success
-        }],
-        components: [{
-            type: 1,
+        if (levelUp && levelUp.newLevel > levelUp.oldLevel) {
+            await sendChannelMessage(env.DISCORD_TOKEN, session.channel_id, {
+                content: `🎉 Congratulations <@${userId}>! You reached **Level ${levelUp.newLevel}**! 🚀`
+            });
+        }
+
+        return updateMessageResponse({
+            embeds: [{
+                title: "💫 XP Caught!",
+                description: `<@${userId}> was the fastest and grabbed **${session.xp_reward} XP**! ⚡`,
+                color: COLORS.SUCCESS
+            }],
             components: [{
-                type: 2,
-                style: 3,
-                label: "⚡ Grabbed!",
-                custom_id: `game:fallen_xp:${sessionId}:grab`,
-                disabled: true
+                type: 1,
+                components: [{
+                    type: 2,
+                    style: 3,
+                    label: "⚡ Grabbed!",
+                    custom_id: `game:fallen_xp:${sessionId}:grab`,
+                    disabled: true
+                }]
             }]
-        }]
-    });
+        });
+    } catch (e) {
+        console.error(e);
+        return ephemeralResponse("Something went wrong.");
+    }
 }

@@ -5,11 +5,21 @@
 # link-worker-url: the private worker that owns the discord_link KV records.
 #   GET ?checkLink=<username> -> {linked, discordId, username} (KV source of truth)
 # api-base-url: the AstralyxXP worker that holds engagement XP.
-#   GET /api/xp/:discordId -> the linked account's XP / level / progress
-#   GET /api/leaderboard?limit=N -> top XP earners
+#   GET  /api/xp/:discordId      -> the linked account's XP / level / progress
+#   GET  /api/leaderboard?limit=N -> top XP earners
+#   POST /api/coinflip           -> {discord_id, choice, amount}
+#   POST /api/slots              -> {discord_id, amount}
+#   POST /api/daily              -> {discord_id}
+#   POST /api/transfer           -> {from, to, amount}
 link-worker-url: "https://astralyxpvp.chessmrbeaston.workers.dev/api"
 api-base-url: "https://astralyx-xp-bot.indiancoder3.workers.dev"
 api-secret: "REPLACE_WITH_WORKER_API_SECRET"
 
-# Message shown to unlinked players.
-link-prompt: "&cYou must link your Discord account first. Run &e/linkaccount &cand then &e/link <username> <code> &cin Discord."
+# Shown to unlinked players who try /xp link.
+link-prompt: "&eTo link your account:\n&a1. &fRun &e/linkaccount &fin Minecraft\n&a2. &fUse &e/link <username> <code> &fin the AstralyxPvP Discord\n&7Once linked, your XP syncs between Minecraft and Discord."
+
+# Greeting shown on join to players who haven't chosen yet (and aren't linked).
+join-greeting: "&e[AstralyxXP] &fHey &e{player}&f!\n&7Your Discord isn't linked to your Minecraft account yet.\n&a/xp link &7- connect now, your XP syncs everywhere\n&b/xp unlinked &7- grind Minecraft-only XP (won't sync, no /link later)\n&cWarning: &7unlinked XP never reaches your Discord, and staff must merge if you switch."
+
+# Prompt shown to pending players when they use a command.
+pending-prompt: "&e[AstralyxXP] &fYour account isn't connected to Discord yet.\n&a/xp link &7- connect Discord now (XP syncs everywhere)\n&b/xp unlinked &7- grind Minecraft-only XP (won't ever sync to Discord)\n&cWarning: &7if you go unlinked, switching to linked later needs staff help."

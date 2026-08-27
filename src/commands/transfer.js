@@ -28,7 +28,7 @@ export async function execute(interaction, env, ctx) {
             
             await transferXP(env.astralyx_xp, senderId, targetUserId, amount);
             
-            const embed = xpEmbed('XP Transferred', `Successfully transferred **${amount} XP** to <@${targetUserId}>!`, [], COLORS.SUCCESS);
+            const embed = xpEmbed('💸 XP Transferred', `Successfully transferred **${amount} XP** to <@${targetUserId}>! 💰`, [], COLORS.SUCCESS);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
         } catch (e) {
             console.error(e);

@@ -25,7 +25,7 @@ export async function execute(interaction, env, ctx) {
             const user = await getUser(env.astralyx_xp, userId);
             
             if (user.xp < amount) {
-                const embed = xpEmbed('Coinflip Failed', `You don't have enough XP. You only have ${user.xp} XP.`, [], COLORS.ERROR);
+                const embed = xpEmbed('🪙 Coinflip Failed', `💸 You don't have enough XP. You only have ${user.xp} XP.`, [], COLORS.ERROR);
                 return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             }
             
@@ -39,11 +39,11 @@ export async function execute(interaction, env, ctx) {
             if (win) {
                 newXp = user.xp + amount;
                 await addXP(env.astralyx_xp, userId, amount);
-                desc = `It landed on **${result}**!\nYou won **${amount} XP**! 🎉\nNew balance: ${newXp} XP`;
+                desc = `🪙 It landed on **${result}**!\n🎉 You won **${amount} XP**!\n💰 New balance: ${newXp} XP`;
             } else {
                 newXp = user.xp - amount;
                 await setXP(env.astralyx_xp, userId, newXp);
-                desc = `It landed on **${result}**.\nYou lost **${amount} XP**. 😢\nNew balance: ${newXp} XP`;
+                desc = `🪙 It landed on **${result}**.\n😢 You lost **${amount} XP**.\n💰 New balance: ${newXp} XP`;
             }
             
             let levelUpResult = null;

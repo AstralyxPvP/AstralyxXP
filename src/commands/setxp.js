@@ -23,14 +23,14 @@ export async function execute(interaction, env, ctx) {
             await setXP(env.astralyx_xp, targetUserId, amount);
             const levelUpResult = checkLevelUp(oldXp, amount);
             
-            let desc = `Set XP for <@${targetUserId}> from **${oldXp}** to **${amount}**!`;
+            let desc = `✏️ Set XP for <@${targetUserId}> from **${oldXp}** to **${amount}**!`;
             if (levelUpResult && levelUpResult.newLevel > levelUpResult.oldLevel) {
                 desc += `\nThey leveled up to **${levelUpResult.newLevel}**! 🎉`;
             } else if (levelUpResult && levelUpResult.newLevel < levelUpResult.oldLevel) {
                 desc += `\nThey leveled down to **${levelUpResult.newLevel}** 😔`;
             }
 
-            const embed = xpEmbed('XP Set', desc, [], COLORS.STAFF);
+            const embed = xpEmbed('📝 XP Set', desc, [], COLORS.STAFF);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
         } catch (e) {
             console.error(e);

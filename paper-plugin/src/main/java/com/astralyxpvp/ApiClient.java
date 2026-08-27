@@ -30,15 +30,27 @@ public final class ApiClient {
     }
 
     public CompletableFuture<Optional<String>> get(String path) {
+        return send("GET", path, null);
+    }
+
+    public CompletableFuture<Optional<String>> post(String path, String jsonBody) {
+        return send("POST", path, jsonBody);
+    }
+
+    private CompletableFuture<Optional<String>> send(String method, String path, String jsonBody) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                HttpRequest req = HttpRequest.newBuilder()
+                HttpRequest.Builder b = HttpRequest.newBuilder()
                         .uri(URI.create(baseUrl + path))
                         .header("Authorization", "Bearer " + secret)
                         .header("User-Agent", "AstralyxXP-Paper/1.0")
-                        .GET()
-                        .build();
-                HttpResponse<InputStream> res = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                        .method(method, jsonBody == null
+                                ? HttpRequest.BodyPublishers.noBody()
+                                : HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
+                if (jsonBody != null) {
+                    b.header("Content-Type", "application/json");
+                }
+                HttpResponse<InputStream> res = http.send(b.build(), HttpResponse.BodyHandlers.ofInputStream());
                 if (res.statusCode() >= 400) {
                     return Optional.empty();
                 }

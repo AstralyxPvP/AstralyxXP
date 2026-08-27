@@ -19,7 +19,7 @@ export async function execute(interaction, env, ctx) {
                 const hoursRemaining = 24 - hoursSinceLast;
                 const minsRemaining = Math.floor((hoursRemaining * 60) % 60);
                 const hrsRemaining = Math.floor(hoursRemaining);
-                const embed = xpEmbed('Daily Reward', `You can claim your next daily reward in **${hrsRemaining}h ${minsRemaining}m**.`, [], COLORS.ERROR);
+                const embed = xpEmbed('📅 Daily Reward', `⏳ You can claim your next daily reward in **${hrsRemaining}h ${minsRemaining}m**.`, [], COLORS.ERROR);
                 return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             }
             
@@ -41,12 +41,12 @@ export async function execute(interaction, env, ctx) {
             
             const levelUpResult = checkLevelUp(user.xp, user.xp + reward);
             
-            let desc = `You claimed your daily reward of **${reward} XP**!\nYour streak is now **${streak}**! 📅`;
+            let desc = `🎁 You claimed your daily reward of **${reward} XP**!\nYour streak is now **${streak}**! 🔥`;
             if (levelUpResult) {
                 desc += `\n\n🎉 **LEVEL UP!** You are now level **${levelUpResult.newLevel}**! 🎉`;
             }
             
-            const embed = xpEmbed('Daily Claimed!', desc, [], COLORS.SUCCESS);
+            const embed = xpEmbed('✅ Daily Claimed!', desc, [], COLORS.SUCCESS);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
         } catch (e) {
             console.error(e);

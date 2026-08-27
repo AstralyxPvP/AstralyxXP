@@ -22,7 +22,7 @@ export async function execute(interaction, env, ctx) {
             const user = await getUser(env.astralyx_xp, userId);
             
             if (user.xp < amount) {
-                const embed = xpEmbed('Slots Failed', `You don't have enough XP. You only have ${user.xp} XP.`, [], COLORS.ERROR);
+                const embed = xpEmbed('🎰 Slots Failed', `💸 You don't have enough XP. You only have ${user.xp} XP.`, [], COLORS.ERROR);
                 return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             }
             

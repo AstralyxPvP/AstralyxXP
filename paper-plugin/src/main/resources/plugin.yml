@@ -1,14 +1,41 @@
 name: AstralyxXP
-version: '1.0.0'
+version: '1.1.0'
 main: com.astralyxpvp.AstralyxXP
 api-version: '1.21'
-description: In-game XP commands backed by the AstralyxPvP worker API, gated behind Discord account linking.
+description: In-game XP commands backed by the AstralyxPvP worker API. Works for linked (Discord-synced) and unlinked (Minecraft-only) players.
 author: AstralyxPvP
 commands:
   xp:
-    description: View your Astralyx XP, level and progress toward the next level.
-    usage: /xp
+    description: View your Astralyx XP / level, or manage your link status.
+    usage: |
+      /xp - view your XP
+      /xp link - link your Discord account
+      /xp unlinked - choose Minecraft-only XP (no /link later)
+      /xp claim - claim your daily reward
+  balance:
+    description: View your Astralyx XP balance.
+    usage: /balance
+    aliases: [bal]
+  daily:
+    description: Claim your daily XP reward.
+    usage: /daily
+  coinflip:
+    description: Bet XP on a coin flip.
+    usage: /coinflip <heads|tails> <amount>
+    aliases: [cf, flip]
+  slots:
+    description: Play the one-armed bandit and risk XP.
+    usage: /slots <amount>
+    aliases: [slot, casino]
+  transfer:
+    description: Send XP to another online player.
+    usage: /transfer <player> <amount>
+    aliases: [pay, give]
   leaderboard:
     description: View the top Astralyx XP earners.
     usage: /leaderboard [limit]
     aliases: [lb, top]
+permissions:
+  astralyxxp.use:
+    description: Allows use of AstralyxXP player commands.
+    default: true

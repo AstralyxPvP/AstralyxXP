@@ -27,7 +27,7 @@ export async function execute(interaction, env, ctx) {
             const gameFile = gameFileMap[gameType];
             const gameModule = await import(`../games/${gameFile}`);
             
-            const embed = xpEmbed('Minigame Started', `Started a **${gameType}** minigame with a reward of **${xpReward} XP**.`, [], COLORS.SUCCESS);
+            const embed = xpEmbed('🎮 Minigame Started', `Started a **${gameType}** minigame with a reward of **${xpReward} XP**! 🎁`, [], COLORS.SUCCESS);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             
             if (typeof gameModule.createGame === 'function') {

@@ -22,7 +22,7 @@ export async function execute(interaction, env, ctx) {
             const newXp = Math.max(0, oldXp - amount);
             await setXP(env.astralyx_xp, targetUserId, newXp);
             
-            const embed = xpEmbed('XP Removed', `Removed **${oldXp - newXp} XP** from <@${targetUserId}>. New balance: **${newXp}**`, [], COLORS.STAFF);
+            const embed = xpEmbed('➖ XP Removed', `Removed **${oldXp - newXp} XP** from <@${targetUserId}>. New balance: **${newXp}** 💰`, [], COLORS.STAFF);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
         } catch (e) {
             console.error(e);

@@ -40,6 +40,77 @@ public final class Json {
         return v == null ? 0 : v.intValue();
     }
 
+    /** Escapes a string for embedding into a JSON object. */
+    public static String escape(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /** Builds a JSON key/value pair for a string. */
+    public static String value(String field, String value) {
+        return "\"" + field + "\":\"" + escape(value) + "\"";
+    }
+
+    /** Builds a JSON key/value pair for a number. */
+    public static String value(String field, long value) {
+        return "\"" + field + "\":" + value;
+    }
+
+    /**
+     * Returns the first top-level string-array value of {@code field}, or an
+     * empty list if absent. Elements must be plain (unescaped) strings.
+     */
+    public static java.util.List<String> strings(String json, String field) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        int idx = json.indexOf("\"" + field + "\"");
+        if (idx < 0) return out;
+        int start = json.indexOf('[', idx);
+        if (start < 0) return out;
+        int depth = 0;
+        boolean inString = false;
+        StringBuilder cur = new StringBuilder();
+        for (int i = start; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '"' && (i == 0 || json.charAt(i - 1) != '\\')) {
+                inString = !inString;
+                if (inString) cur.setLength(0);
+                continue;
+            }
+            if (!inString) {
+                if (c == '[') depth++;
+                else if (c == ']') {
+                    depth--;
+                    if (depth == 0) break;
+                }
+                continue;
+            }
+            cur.append(c);
+        }
+        // Re-scan to collect elements.
+        out.clear();
+        inString = false;
+        cur.setLength(0);
+        boolean inArray = false;
+        for (int i = start; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '"' && (i == 0 || json.charAt(i - 1) != '\\')) {
+                inString = !inString;
+                if (!inString) {
+                    out.add(cur.toString());
+                    cur.setLength(0);
+                }
+                continue;
+            }
+            if (inString) {
+                cur.append(c);
+            } else if (c == '[' && !inArray) {
+                inArray = true;
+            } else if (c == ']' && inArray) {
+                break;
+            }
+        }
+        return out;
+    }
+
     /**
      * Returns the top-level array value of {@code field} split into raw
      * element objects, or an empty list if absent.

@@ -9,7 +9,7 @@
  * All endpoints require: Authorization: Bearer <API_SECRET>
  */
 
-import { getUser, getLinkedAccount, getLinkedByUUID, linkAccount, ensureUser } from './utils/db.js';
+import { getUser, getLinkedAccount, getLinkedByUUID, linkAccount, ensureUser, addXP, setXP, transferXP, updateDaily } from './utils/db.js';
 import { getLevel, getProgress } from './utils/levels.js';
 import { jsonResponse } from './utils/discord.js';
 
@@ -79,6 +79,181 @@ export async function handleAPI(request, env, url) {
     } catch (error) {
       console.error('Link error:', error);
       return jsonResponse({ error: 'Failed to link account' }, 500);
+    }
+  }
+
+  // POST /api/coinflip — body: { discord_id, choice, amount }
+  if (path === '/api/coinflip' && request.method === 'POST') {
+    try {
+      const { discord_id, choice, amount } = await request.json();
+      if (!discord_id || (choice !== 'heads' && choice !== 'tails') || !Number.isFinite(amount)) {
+        return jsonResponse({ error: 'Invalid request' }, 400);
+      }
+      if (amount < 10 || amount > 5000) {
+        return jsonResponse({ error: 'Amount must be between 10 and 5000 XP.' }, 400);
+      }
+
+      await ensureUser(db, discord_id);
+      const user = await getUser(db, discord_id);
+      if (user.xp < amount) {
+        return jsonResponse({ error: 'Insufficient XP', xp: user.xp }, 400);
+      }
+
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      const result = buf[0] % 2 === 0 ? 'heads' : 'tails';
+      const win = result === choice;
+      const newXp = win ? await addXP(db, discord_id, amount) : await setXP(db, discord_id, user.xp - amount);
+      const progress = getProgress(newXp);
+
+      return jsonResponse({
+        result,
+        win,
+        amount,
+        xp: newXp,
+        level: progress.level,
+        next_level_xp: progress.nextThreshold,
+        progress: Math.round(progress.progress * 100),
+      });
+    } catch (error) {
+      console.error('Coinflip error:', error);
+      return jsonResponse({ error: 'Failed to play' }, 500);
+    }
+  }
+
+  // POST /api/slots — body: { discord_id, amount }
+  if (path === '/api/slots' && request.method === 'POST') {
+    try {
+      const { discord_id, amount } = await request.json();
+      if (!discord_id || !Number.isFinite(amount)) {
+        return jsonResponse({ error: 'Invalid request' }, 400);
+      }
+      if (amount < 10 || amount > 5000) {
+        return jsonResponse({ error: 'Amount must be between 10 and 5000 XP.' }, 400);
+      }
+
+      await ensureUser(db, discord_id);
+      const user = await getUser(db, discord_id);
+      if (user.xp < amount) {
+        return jsonResponse({ error: 'Insufficient XP', xp: user.xp }, 400);
+      }
+
+      const symbols = ['🍒', '🍋', '🔔', '💎', '⭐', '7️⃣'];
+      const buf = new Uint32Array(3);
+      crypto.getRandomValues(buf);
+      const s1 = symbols[buf[0] % symbols.length];
+      const s2 = symbols[buf[1] % symbols.length];
+      const s3 = symbols[buf[2] % symbols.length];
+
+      let winAmount = -amount;
+      let jackpot = false;
+      let pair = false;
+      if (s1 === s2 && s2 === s3) {
+        winAmount = amount * 5;
+        jackpot = true;
+      } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+        pair = true;
+      }
+
+      const newXp = await addXP(db, discord_id, winAmount);
+      const progress = getProgress(newXp);
+
+      return jsonResponse({
+        symbols: [s1, s2, s3],
+        jackpot,
+        pair,
+        win_amount: winAmount,
+        amount,
+        xp: newXp,
+        level: progress.level,
+        next_level_xp: progress.nextThreshold,
+        progress: Math.round(progress.progress * 100),
+      });
+    } catch (error) {
+      console.error('Slots error:', error);
+      return jsonResponse({ error: 'Failed to play' }, 500);
+    }
+  }
+
+  // POST /api/daily — body: { discord_id }
+  if (path === '/api/daily' && request.method === 'POST') {
+    try {
+      const { discord_id } = await request.json();
+      if (!discord_id) {
+        return jsonResponse({ error: 'Invalid request' }, 400);
+      }
+
+      await ensureUser(db, discord_id);
+      const user = await getUser(db, discord_id);
+
+      const now = Date.now();
+      const lastClaimed = user.daily_last_claimed ? new Date(user.daily_last_claimed).getTime() : 0;
+      const hoursSinceLast = (now - lastClaimed) / (1000 * 60 * 60);
+
+      if (hoursSinceLast < 24) {
+        const hoursRemaining = 24 - hoursSinceLast;
+        return jsonResponse({
+          error: 'On cooldown',
+          hours: Math.floor(hoursRemaining),
+          minutes: Math.floor((hoursRemaining * 60) % 60),
+        }, 429);
+      }
+
+      let streak = user.daily_streak || 0;
+      if (hoursSinceLast <= 48) {
+        streak += 1;
+      } else {
+        streak = 1;
+      }
+
+      const baseReward = 10;
+      const bonus = Math.floor(streak / 3) * 5;
+      const reward = baseReward + bonus;
+
+      await updateDaily(db, discord_id, streak);
+      const newXp = await addXP(db, discord_id, reward);
+      const progress = getProgress(newXp);
+
+      return jsonResponse({
+        reward,
+        streak,
+        xp: newXp,
+        level: progress.level,
+        next_level_xp: progress.nextThreshold,
+        progress: Math.round(progress.progress * 100),
+      });
+    } catch (error) {
+      console.error('Daily error:', error);
+      return jsonResponse({ error: 'Failed to claim' }, 500);
+    }
+  }
+
+  // POST /api/transfer — body: { from, to, amount }
+  if (path === '/api/transfer' && request.method === 'POST') {
+    try {
+      const { from, to, amount } = await request.json();
+      if (!from || !to || !Number.isFinite(amount)) {
+        return jsonResponse({ error: 'Invalid request' }, 400);
+      }
+      if (amount < 1) {
+        return jsonResponse({ error: 'Amount must be at least 1 XP.' }, 400);
+      }
+      if (from === to) {
+        return jsonResponse({ error: 'You cannot transfer XP to yourself.' }, 400);
+      }
+
+      await ensureUser(db, from);
+      await ensureUser(db, to);
+      const sender = await getUser(db, from);
+      if (sender.xp < amount) {
+        return jsonResponse({ error: 'Insufficient XP', xp: sender.xp }, 400);
+      }
+
+      const result = await transferXP(db, from, to, amount);
+      return jsonResponse({ success: true, ...result });
+    } catch (error) {
+      console.error('Transfer error:', error);
+      return jsonResponse({ error: 'Transfer failed' }, 500);
     }
   }
 

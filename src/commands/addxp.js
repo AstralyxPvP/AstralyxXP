@@ -23,12 +23,12 @@ export async function execute(interaction, env, ctx) {
             const newXp = oldXp + amount;
             const levelUpResult = checkLevelUp(oldXp, newXp);
             
-            let desc = `Added **${amount} XP** to <@${targetUserId}>. New balance: **${newXp}**`;
+            let desc = `➕ Added **${amount} XP** to <@${targetUserId}>. New balance: **${newXp}** 💰`;
             if (levelUpResult) {
                 desc += `\nThey leveled up to **${levelUpResult.newLevel}**! 🎉`;
             }
 
-            const embed = xpEmbed('XP Added', desc, [], COLORS.STAFF);
+            const embed = xpEmbed('📈 XP Added', desc, [], COLORS.STAFF);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
         } catch (e) {
             console.error(e);

@@ -19,16 +19,16 @@ export async function execute(interaction, env, ctx) {
             
             const bar = progressBar(xpIntoLevel, xpNeeded);
             
-            let description = `**Level:** ${level}\n**XP:** ${currentXP}`;
+            let description = `🏅 **Level:** ${level}\n✨ **XP:** ${currentXP}`;
             if (nextThreshold === null) {
-                description += `\n\n${bar} 100%\n*Max level reached!*`;
+                description += `\n\n${bar} 100%\n👑 *Max level reached! Absolute legend!*`;
             } else {
-                description += ` / ${nextThreshold}\n\n${bar} ${Math.floor(progress * 100)}%\n*Need ${xpNeeded - xpIntoLevel} more XP to level up!*`;
+                description += ` / ${nextThreshold}\n\n${bar} ${Math.floor(progress * 100)}%\n🎯 *Need ${xpNeeded - xpIntoLevel} more XP to level up! Keep going!*`;
             }
             
-            const embed = xpEmbed('Balance', description, [], COLORS.INFO);
+            const embed = xpEmbed('💰 Balance', description, [], COLORS.INFO);
             if (linkedAccount) {
-                embed.footer = { text: `Linked Account: ${linkedAccount.minecraft_name}` };
+                embed.footer = { text: `🔗 Linked to ${linkedAccount.minecraft_name}` };
             }
             
             await patchOriginal(interaction.application_id, interaction.token, {

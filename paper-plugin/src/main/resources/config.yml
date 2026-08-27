@@ -2,10 +2,12 @@
 # XP is the Discord ENGAGEMENT track (minigames, dailies, coinflip).
 # ELO (kills/bounties) is handled elsewhere — this plugin never touches it.
 #
-# Endpoints (all require: Authorization: Bearer <api-secret>):
-#   GET  /api/linked/:uuid         -> resolves a Minecraft player to their linked Discord account
-#   GET  /api/xp/:discordId        -> the linked account's XP / level / progress
-#   GET  /api/leaderboard?limit=N  -> top XP earners
+# link-worker-url: the private worker that owns the discord_link KV records.
+#   GET ?checkLink=<username> -> {linked, discordId, username} (KV source of truth)
+# api-base-url: the AstralyxXP worker that holds engagement XP.
+#   GET /api/xp/:discordId -> the linked account's XP / level / progress
+#   GET /api/leaderboard?limit=N -> top XP earners
+link-worker-url: "https://astralyxpvp.chessmrbeaston.workers.dev/api"
 api-base-url: "https://astralyx-xp-bot.indiancoder3.workers.dev"
 api-secret: "REPLACE_WITH_WORKER_API_SECRET"
 

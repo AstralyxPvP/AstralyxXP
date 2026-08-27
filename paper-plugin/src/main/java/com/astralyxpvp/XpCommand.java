@@ -1,6 +1,5 @@
 package com.astralyxpvp;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -12,11 +11,13 @@ import org.jetbrains.annotations.NotNull;
 public final class XpCommand implements CommandExecutor {
 
     private final AstralyxXP plugin;
-    private final ApiClient api;
+    private final ApiClient linkApi;
+    private final ApiClient xpApi;
 
-    public XpCommand(AstralyxXP plugin, ApiClient api) {
+    public XpCommand(AstralyxXP plugin, ApiClient linkApi, ApiClient xpApi) {
         this.plugin = plugin;
-        this.api = api;
+        this.linkApi = linkApi;
+        this.xpApi = xpApi;
     }
 
     @Override
@@ -26,24 +27,22 @@ public final class XpCommand implements CommandExecutor {
             return true;
         }
         Player p = (Player) sender;
-        UUID uuid = p.getUniqueId();
 
         p.sendMessage(ChatColor.GRAY + "Fetching your Astralyx XP...");
 
-        api.get("/api/linked/" + uuid.toString()).whenComplete((linked, err) -> {
+        linkApi.get("/?checkLink=" + encode(p.getName())).whenComplete((linked, err) -> {
             if (err != null || linked.isEmpty()) {
-                sendSync(p, () -> p.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                        plugin.getConfig().getString("link-prompt", "&cYou are not linked. Run /linkaccount first."))));
+                sendSync(p, () -> p.sendMessage(ChatColor.RED + "Could not reach the linking service. Try again later."));
                 return;
             }
-            String discordId = Json.string(linked.get(), "discord_id");
+            String discordId = Json.string(linked.get(), "discordId");
             if (discordId == null) {
                 sendSync(p, () -> p.sendMessage(ChatColor.translateAlternateColorCodes('&',
                         plugin.getConfig().getString("link-prompt", "&cYou are not linked. Run /linkaccount first."))));
                 return;
             }
 
-            api.get("/api/xp/" + discordId).whenComplete((xpRes, xpErr) -> {
+            xpApi.get("/api/xp/" + discordId).whenComplete((xpRes, xpErr) -> {
                 if (xpErr != null || xpRes.isEmpty()) {
                     sendSync(p, () -> p.sendMessage(ChatColor.RED + "Failed to fetch your XP. Try again later."));
                     return;
@@ -63,6 +62,14 @@ public final class XpCommand implements CommandExecutor {
             });
         });
         return true;
+    }
+
+    private String encode(String value) {
+        try {
+            return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return value;
+        }
     }
 
     /** Runs the action on the server main thread (Bukkit API is not thread-safe). */

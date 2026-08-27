@@ -8,14 +8,18 @@ public final class AstralyxXP extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
-        ApiClient apiClient = new ApiClient(
+        ApiClient linkApi = new ApiClient(
+                getConfig().getString("link-worker-url", ""),
+                ""
+        );
+        ApiClient xpApi = new ApiClient(
                 getConfig().getString("api-base-url", ""),
                 getConfig().getString("api-secret", "")
         );
 
-        XpCommand xpCommand = new XpCommand(this, apiClient);
+        XpCommand xpCommand = new XpCommand(this, linkApi, xpApi);
         getCommand("xp").setExecutor(xpCommand);
-        getCommand("leaderboard").setExecutor(new LeaderboardCommand(this, apiClient));
+        getCommand("leaderboard").setExecutor(new LeaderboardCommand(this, xpApi));
 
         getServer().getConsoleSender().sendMessage("""
                 ===========================================

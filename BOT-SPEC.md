@@ -67,8 +67,21 @@ Staff are detected by these Discord roles (in order of rank):
 8. Sr. Mod (`1497316120452136960`)
 9. Mod (`1477025502119334109`)
 
-## Technical notes
+## Cloudflare infrastructure
 
-- Deployed as a Cloudflare Worker, D1 database named `astralyx-xp`.
-- Interaction endpoint: `/interactions` with Ed25519 signature verification.
-- The site lives at `../AstralyxPvP-site`.
+- **Worker name:** `astralyx-xp-bot`
+- **Worker URL:** `https://astralyx-xp-bot.indiancoder3.workers.dev`
+- **Interaction endpoint:** `/interactions` on the worker URL
+- **D1 database name:** `astralyx-xp`
+- **D1 database id:** `8d49959b-aa51-4e7e-a5ac-8829b6709cf1`
+- **D1 binding name:** `astralyx_xp`
+- **Deployment:** repo auto-deploys on push to `main` via GitHub Actions (needs the `CLOUDFLARE_API_TOKEN` repo secret).
+
+## Discord application
+
+- **Application ID:** `1542222656148078643`
+- **Public Key:** `bfa5593606761d59d3d8f725d60752c48d22cc22070fdaa26d3d0b8a53511e10`
+
+Worker secrets that are already set on Cloudflare: `DISCORD_TOKEN`, `DISCORD_PUBLIC_KEY`, `DISCORD_APPLICATION_ID`.
+
+The site lives at `../AstralyxPvP-site`.

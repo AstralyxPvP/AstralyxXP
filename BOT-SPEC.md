@@ -102,20 +102,26 @@ Leveling up is automatic based on total XP.
 - `/setxp <user> <amount>` — Set a user's XP to exactly this amount.
 - `/addxp <user> <amount>` — Add XP to a user.
 - `/removexp <user> <amount>` — Remove XP from a user (can't go below 0).
+- `/minigames` - Start a Minigame (we will soon make it random triggers).
 
 ## Staff roles
 
-Staff are detected by these Discord roles (in order of rank) (there's more staff below Moderator, but we ain't providing them privilege):
+Staff are detected by these Discord roles (in order of rank):
 
 1. Owner (`1477025238784151554`)
 2. Co-Owner (`1477291491003994214`)
 3. Chief Manager (`1502815102716608552`)
 4. Sr. Manager (`1497335106074050620`)
 5. Manager (`1483209618485284964`)
-6. Developer (`1497316294632931358`)
-7. Admin (`1497316250945323070`)
-8. Sr. Mod (`1497316120452136960`)
-9. Mod (`1477025502119334109`)
+6. Sr. Developer (`1529483674817532066`)
+7. Developer (`1497316294632931358`)
+8. Jr. Developer (`1530947152900259930`)
+9. Admin (`1497316250945323070`)
+10. Sr. Mod (`1497316120452136960`)
+11. Mod (`1477025502119334109`)
+12. Jr. Mod (`1497316057214484735`)
+13. Helper (`1477025528174219476`)
+14. Trial (`1501217374102229185`)
 
 ## Cloudflare infrastructure
 

@@ -1,6 +1,6 @@
 /**
  * Staff role IDs from the AstralyxPvP Discord server.
- * Only Mod and above have staff privileges for XP commands.
+ * These are the admin-and-above roles sourced from the forums ROLE_MAP.
  */
 export const STAFF_ROLE_IDS = new Set([
   '1477025238784151554', // Owner
@@ -8,10 +8,15 @@ export const STAFF_ROLE_IDS = new Set([
   '1502815102716608552', // Chief Manager
   '1497335106074050620', // Sr. Manager
   '1483209618485284964', // Manager
+  '1529483674817532066', // Sr. Developer
   '1497316294632931358', // Developer
+  '1530947152900259930', // Jr. Developer
   '1497316250945323070', // Admin
   '1497316120452136960', // Sr. Mod
   '1477025502119334109', // Mod
+  '1497316057214484735', // Jr. Mod
+  '1477025528174219476', // Helper
+  '1501217374102229185', // Trial
 ]);
 
 /**

@@ -1,0 +1,12 @@
+name = "astralyx-xp-bot"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+[[d1_databases]]
+binding = "astralyx_xp"
+database_name = "astralyx-xp"
+database_id = "8d49959b-aa51-4e7e-a5ac-8829b6709cf1"
+
+[observability.logs]
+enabled = true
+invocation_logs = true

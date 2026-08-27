@@ -12,6 +12,6 @@
     "wrangler": "^4.126.0"
   },
   "dependencies": {
-    "discord-interactions": "^3.4.0"
+    "tweetnacl": "^1.0.3"
   }
 }

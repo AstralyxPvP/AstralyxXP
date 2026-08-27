@@ -1,8 +1,29 @@
-import {
-  verifyKey,
-  InteractionType,
-  InteractionResponseType,
-} from "discord-interactions";
+import nacl from "tweetnacl";
+
+const InteractionType = { PING: 1, APPLICATION_COMMAND: 2 };
+const InteractionResponseType = { PONG: 1, CHANNEL_MESSAGE_WITH_SOURCE: 4 };
+const InteractionResponseFlags = { EPHEMERAL: 64 };
+
+// ---------- signature verification ----------
+
+function hexToUint8Array(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+function verifyKey(body, signature, timestamp, publicKey) {
+  try {
+    const message = new TextEncoder().encode(timestamp + body);
+    const sig = hexToUint8Array(signature);
+    const key = hexToUint8Array(publicKey);
+    return nacl.sign.detached.verify(message, sig, key);
+  } catch {
+    return false;
+  }
+}
 
 const OWNER_ID = "1513925512118931551";
 

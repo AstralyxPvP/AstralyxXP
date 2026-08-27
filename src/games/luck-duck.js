@@ -15,7 +15,7 @@ export async function createGame(interaction, env, ctx, xpReward) {
     const embed = {
         title: "🦆 Luck Duck — Find the Duck!",
         description: `The duck is hiding behind one of these emojis!\n\n**Prize:** ${xpReward} XP\n*Ends in 60s!*`,
-        color: COLORS.primary
+        color: COLORS.MINIGAME
     };
 
     const components = [{

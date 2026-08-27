@@ -11,7 +11,7 @@ export async function createGame(interaction, env, ctx, xpReward) {
     const embed = {
         title: "🪜 Ladders Game!",
         description: `Roll the dice to climb the ladder!\nWatch out for step 4 — you might slip! 🐍\n\n**Prize:** ${xpReward} XP to the first to reach step 5!\n*Ends in 60s!*`,
-        color: COLORS.primary
+        color: COLORS.MINIGAME
     };
 
     const components = [{

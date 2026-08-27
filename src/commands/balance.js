@@ -26,7 +26,7 @@ export async function execute(interaction, env, ctx) {
                 description += ` / ${nextThreshold}\n\n${bar} ${Math.floor(progress * 100)}%\n*Need ${xpNeeded - xpIntoLevel} more XP to level up!*`;
             }
             
-            const embed = xpEmbed('Balance', description, COLORS.info);
+            const embed = xpEmbed('Balance', description, [], COLORS.INFO);
             if (linkedAccount) {
                 embed.footer = { text: `Linked Account: ${linkedAccount.minecraft_name}` };
             }

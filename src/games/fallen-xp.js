@@ -11,7 +11,7 @@ export async function createGame(interaction, env, ctx, xpReward) {
     const embed = {
         title: "💫 XP Fell From The Sky!",
         description: `A chunk of XP just fell from space! First one to grab it gets **${xpReward} XP**!`,
-        color: COLORS.primary
+        color: COLORS.MINIGAME
     };
 
     const components = [{

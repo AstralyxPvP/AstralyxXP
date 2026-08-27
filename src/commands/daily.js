@@ -19,7 +19,7 @@ export async function execute(interaction, env, ctx) {
                 const hoursRemaining = 24 - hoursSinceLast;
                 const minsRemaining = Math.floor((hoursRemaining * 60) % 60);
                 const hrsRemaining = Math.floor(hoursRemaining);
-                const embed = xpEmbed('Daily Reward', `You can claim your next daily reward in **${hrsRemaining}h ${minsRemaining}m**.`, COLORS.error);
+                const embed = xpEmbed('Daily Reward', `You can claim your next daily reward in **${hrsRemaining}h ${minsRemaining}m**.`, [], COLORS.ERROR);
                 return patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
             }
             
@@ -46,7 +46,7 @@ export async function execute(interaction, env, ctx) {
                 desc += `\n\n🎉 **LEVEL UP!** You are now level **${levelUpResult.newLevel}**! 🎉`;
             }
             
-            const embed = xpEmbed('Daily Claimed!', desc, COLORS.success);
+            const embed = xpEmbed('Daily Claimed!', desc, [], COLORS.SUCCESS);
             await patchOriginal(interaction.application_id, interaction.token, { embeds: [embed] });
         } catch (e) {
             console.error(e);

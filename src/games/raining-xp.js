@@ -10,7 +10,7 @@ export async function createGame(interaction, env, ctx, xpReward) {
     const embed = {
         title: "☔ It's Raining XP!",
         description: `Catch the drops! Click the button below to collect some XP.\n\n**Base Reward:** ${xpReward} XP\n*Ends in 15 seconds!*`,
-        color: COLORS.primary
+        color: COLORS.MINIGAME
     };
 
     const components = [{

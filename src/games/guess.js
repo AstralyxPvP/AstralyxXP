@@ -34,7 +34,7 @@ export async function createGame(interaction, env, ctx, xpReward) {
     const embed = {
         title: "🤔 Trivia Guessing Game!",
         description: `**${q.q}**\n\n**Base Reward:** ${xpReward} XP\n*Ends in 30 seconds or after 5 correct answers!*`,
-        color: COLORS.primary
+        color: COLORS.MINIGAME
     };
 
     const components = [{

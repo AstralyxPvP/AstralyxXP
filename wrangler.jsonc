@@ -1,7 +1,6 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "astralyx-xp-bot",
-  "main": "src/index.ts",
+  "main": "src/index.js",
   "compatibility_date": "2025-08-25",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [

@@ -1,25 +1,17 @@
 {
   "name": "astralyxxp",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "AstralyxPvP XP Discord Bot",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AstralyxPvP/AstralyxXP.git"
-  },
-  "keywords": [],
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/AstralyxPvP/AstralyxXP/issues"
-  },
-  "homepage": "https://github.com/AstralyxPvP/AstralyxXP#readme",
   "devDependencies": {
     "wrangler": "^4.126.0"
   },
   "dependencies": {
-    "discord-interactions": "^4.4.0"
+    "discord-interactions": "^3.4.0"
   }
 }

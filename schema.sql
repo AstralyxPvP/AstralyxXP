@@ -1,9 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
   user_id TEXT PRIMARY KEY,
   xp INTEGER NOT NULL DEFAULT 0,
-  coins INTEGER NOT NULL DEFAULT 50,
   daily_streak INTEGER NOT NULL DEFAULT 0,
   last_daily INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT OR IGNORE INTO users (user_id, xp, coins, daily_streak, last_daily) VALUES ('1513925512118931551', 10, 50, 0, 0);
+INSERT OR IGNORE INTO users (user_id, xp, daily_streak, last_daily) VALUES ('1513925512118931551', 10, 0, 0);

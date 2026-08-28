@@ -1,8 +1,9 @@
-[![GitHub license](https://img.shields.io/github/license/AstralyxPvP/AstralyxXP?color=blue&logo=gnu)](LICENSE)
-[![Cloudflare Workers](https://img.shields.io/badge/Deployed%20on-Cloudflare%20Workers-orange?logo=cloudflare)](https://astralyx-xp-bot.indiancoder3.workers.dev)
-[![Discord](https://img.shields.io/discord/1477025023800901766?logo=discord&logoColor=white&color=7389D8&label=discord)](https://discord.gg/u8BFrpRwEg)
-[![D1](https://img.shields.io/badge/Database-D1%20SQLite-blue?logo=sqlite)](https://developers.cloudflare.com/d1/)
-[![Status](https://img.shields.io/website?url=https%3A%2F%2Fastralyx-xp-bot.indiancoder3.workers.dev%2F&up_message=online&down_message=offline&logo=cloudflare)](https://astralyx-xp-bot.indiancoder3.workers.dev)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)
+![D1](https://img.shields.io/badge/Database-D1_SQLite-F6822E?style=for-the-badge&logo=sqlite&logoColor=white)
+![Paper](https://img.shields.io/badge/Plugin-Paper_1.21-e34c26?style=for-the-badge)
+![Discord](https://img.shields.io/badge/Discord-Bot-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Minecraft](https://img.shields.io/badge/Minecraft-Java_1.9+-00aa00?style=for-the-badge)
+![Made in India](https://img.shields.io/badge/Made_in-India_🇮🇳-FF9933?style=for-the-badge)
 
 # AstralyxXP
 
@@ -33,7 +34,13 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
   - Luck Duck
 - **Community commands** — `/balance`, `/leaderboard`, `/transfer`.
 - **Staff tools** — grant or strip XP directly.
-- **In-game integration** — account linking unlocks in-game gems and roles.
+- **In-game plugin** — a Paper plugin (`AstralyxXP.jar`) for linked & unlinked players:
+  - `/xp`, `/balance`, `/daily` — view & claim from in-game.
+  - `/coinflip`, `/slots`, `/transfer` — gamble and trade XP on the server.
+  - `/xp link` + `/linkaccount` — connect Discord (XP syncs everywhere).
+  - `/xp bind <discordId>` — manual XP-account link, no code (overrides `/linkaccount`).
+  - `/xp unlinked` — grind Minecraft-only XP that never syncs to Discord.
+  - **Smart merge** — if a player grinds unlinked then links later, the higher of their Minecraft or Discord XP wins.
 
 ## 📜 Commands
 
@@ -63,6 +70,7 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
 - **Runtime:** Cloudflare Workers (edge serverless)
 - **Database:** Cloudflare D1 (SQLite)
 - **Discord:** Interactions API (slash commands & components)
+- **Platform:** Paper 1.21 plugin for in-game XP commands
 - **Deployment:** GitHub Actions → `wrangler deploy` on every push to `main`
 
 ## 🚀 Development

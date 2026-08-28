@@ -10,6 +10,7 @@ commands:
     usage: |
       /xp - view your XP
       /xp link - link your Discord account
+      /xp bind <discordId> - manually link your XP account (overrides linkaccount)
       /xp unlinked - choose Minecraft-only XP (no /link later)
       /xp claim - claim your daily reward
   balance:

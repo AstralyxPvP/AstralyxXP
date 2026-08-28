@@ -16,10 +16,10 @@ api-base-url: "https://astralyx-xp-bot.indiancoder3.workers.dev"
 api-secret: "REPLACE_WITH_WORKER_API_SECRET"
 
 # Shown to unlinked players who try /xp link.
-link-prompt: "&eTo link your account:\n&a1. &fRun &e/linkaccount &fin Minecraft\n&a2. &fUse &e/link <username> <code> &fin the AstralyxPvP Discord\n&7Once linked, your XP syncs between Minecraft and Discord."
+link-prompt: "&eTo link your account:\n&a1. &fRun &e/linkaccount &fin Minecraft, then &e/link <username> <code> &fin the AstralyxPvP Discord\n&a2. &fManual: &e/xp bind <discordId> &7(links your XP account directly, no code)\n&7Once linked, your XP syncs between Minecraft and Discord."
 
 # Greeting shown on join to players who haven't chosen yet (and aren't linked).
-join-greeting: "&e[AstralyxXP] &fHey &e{player}&f!\n&7Your Discord isn't linked to your Minecraft account yet.\n&a/xp link &7- connect now, your XP syncs everywhere\n&b/xp unlinked &7- grind Minecraft-only XP (won't sync, no /link later)\n&cWarning: &7unlinked XP never reaches your Discord, and staff must merge if you switch."
+join-greeting: "&e[AstralyxXP] &fHey &e{player}&f!\n&7Your Discord isn't linked to your Minecraft account yet.\n&a/xp link &7- connect now, your XP syncs everywhere\n&a/xp bind <discordId> &7- or link it manually (no code)\n&b/xp unlinked &7- grind Minecraft-only XP (won't sync, no /link later)\n&cWarning: &7unlinked XP never reaches your Discord, and staff must merge if you switch."
 
 # Prompt shown to pending players when they use a command.
-pending-prompt: "&e[AstralyxXP] &fYour account isn't connected to Discord yet.\n&a/xp link &7- connect Discord now (XP syncs everywhere)\n&b/xp unlinked &7- grind Minecraft-only XP (won't ever sync to Discord)\n&cWarning: &7if you go unlinked, switching to linked later needs staff help."
+pending-prompt: "&e[AstralyxXP] &fYour account isn't connected to Discord yet.\n&a/xp link &7- connect Discord now (XP syncs everywhere)\n&a/xp bind <discordId> &7- link it manually (no code)\n&b/xp unlinked &7- grind Minecraft-only XP (won't ever sync to Discord)\n&cWarning: &7if you go unlinked, switching to linked later needs staff help."

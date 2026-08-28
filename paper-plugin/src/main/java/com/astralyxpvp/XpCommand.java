@@ -33,6 +33,15 @@ public final class XpCommand implements CommandExecutor {
                 case "link":
                     actions.link(p);
                     return true;
+                case "bind":
+                case "manuallink":
+                case "manual":
+                    if (args.length < 2) {
+                        p.sendMessage(ChatColor.RED + "Usage: /xp bind <discordId>");
+                        return true;
+                    }
+                    actions.bind(p, args[1]);
+                    return true;
                 case "unlinked":
                     actions.chooseUnlinked(p);
                     return true;

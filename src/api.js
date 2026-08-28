@@ -62,23 +62,58 @@ export async function handleAPI(request, env, url) {
     });
   }
 
-  // POST /api/link — body: { discord_id, minecraft_uuid, minecraft_name }
+  // POST /api/link — body: { discord_id, minecraft_uuid, minecraft_name, merge_xp? }
+  // When merge_xp is provided, the higher of it and the account's current XP is kept.
   if (path === '/api/link' && request.method === 'POST') {
     try {
       const body = await request.json();
-      const { discord_id, minecraft_uuid, minecraft_name } = body;
+      const { discord_id, minecraft_uuid, minecraft_name, merge_xp } = body;
 
       if (!discord_id || !minecraft_uuid || !minecraft_name) {
         return jsonResponse({ error: 'Missing required fields: discord_id, minecraft_uuid, minecraft_name' }, 400);
       }
 
       await ensureUser(db, discord_id);
+      let user = await getUser(db, discord_id);
+      let picked = 'discord';
+      const mergeXp = Number.isFinite(merge_xp) ? Math.floor(merge_xp) : -1;
+      if (mergeXp >= 0 && mergeXp > user.xp) {
+        await setXP(db, discord_id, mergeXp);
+        user = await getUser(db, discord_id);
+        picked = 'minecraft';
+      }
+
       await linkAccount(db, discord_id, minecraft_uuid, minecraft_name);
 
-      return jsonResponse({ success: true, message: 'Account linked successfully' });
+      return jsonResponse({ success: true, xp: user.xp, picked, message: 'Account linked successfully' });
     } catch (error) {
       console.error('Link error:', error);
       return jsonResponse({ error: 'Failed to link account' }, 500);
+    }
+  }
+
+  // POST /api/merge — body: { discord_id, xp }
+  // For players that were grinding Minecraft-only XP and later became linked:
+  // keeps the higher of their local XP and their Discord XP (blast back into D1).
+  if (path === '/api/merge' && request.method === 'POST') {
+    try {
+      const { discord_id, xp } = await request.json();
+      if (!discord_id || !Number.isFinite(xp)) {
+        return jsonResponse({ error: 'Invalid request' }, 400);
+      }
+
+      await ensureUser(db, discord_id);
+      const current = (await getUser(db, discord_id)).xp;
+      const floor = Math.floor(xp);
+      if (floor > current) {
+        await setXP(db, discord_id, floor);
+      }
+      const finalXp = (await getUser(db, discord_id)).xp;
+
+      return jsonResponse({ success: true, xp: finalXp, merged: floor > current });
+    } catch (error) {
+      console.error('Merge error:', error);
+      return jsonResponse({ error: 'Merge failed' }, 500);
     }
   }
 

@@ -31,12 +31,24 @@ public final class XpActions {
         this.state = state;
     }
 
-    /** Resolves the player's mode and their linked Discord ID (when linked). */
+    /**
+     * Resolves the player's mode and their linked Discord ID (when linked).
+     *
+     * Manual links (/xp bind, stored in the XP worker's D1 linked_accounts)
+     * are checked FIRST and take precedence over /linkaccount links (stored in
+     * the private link worker's KV) if the two ever conflict.
+     */
     public CompletableFuture<PlayerAccount> resolve(Player p) {
-        return links.discordIdFor(p.getName()).thenApply(opt -> {
-            if (opt.isPresent()) return new PlayerAccount(Mode.LINKED, opt.get());
-            if (state.isUnlinked(p.getUniqueId())) return new PlayerAccount(Mode.UNLINKED, null);
-            return new PlayerAccount(Mode.PENDING, null);
+        return xpApi.get("/api/linked/" + p.getUniqueId()).thenCompose(manualBody -> {
+            String manualId = manualBody.isEmpty() ? null : Json.string(manualBody.get(), "discord_id");
+            if (manualId != null) {
+                return CompletableFuture.completedFuture(new PlayerAccount(Mode.LINKED, manualId));
+            }
+            return links.discordIdFor(p.getName()).thenApply(opt -> {
+                if (opt.isPresent()) return new PlayerAccount(Mode.LINKED, opt.get());
+                if (state.isUnlinked(p.getUniqueId())) return new PlayerAccount(Mode.UNLINKED, null);
+                return new PlayerAccount(Mode.PENDING, null);
+            });
         });
     }
 
@@ -401,6 +413,52 @@ public final class XpActions {
                                     + "&aGrind on! /daily, /coinflip, /slots and /transfer all work with Minecraft-only XP."));
                 });
             }
+        });
+    }
+
+    /**
+     * Manual link: binds this Minecraft account's XP to a Discord user ID on
+     * the XP worker (astralyx_xp D1 linked_accounts). Only links the XP
+     * account — the private /linkaccount ELO/rank link is separate.
+     *
+     * If the player had been grinding Minecraft-only XP, the higher of their
+     * local XP and the Discord account's current XP is kept (merge).
+     */
+    public void bind(Player p, String discordId) {
+        final String id = discordId == null ? "" : discordId.trim();
+        if (!id.matches("\\d{15,20}")) {
+            p.sendMessage(ChatColor.RED + "Usage: /xp bind <discordId> — your Discord user ID. Find it in Discord: Settings → Advanced → Developer Mode, then right-click your name → Copy User ID.");
+            return;
+        }
+        final long local = state.localXp(p.getUniqueId());
+        String json = "{" + Json.value("discord_id", id)
+                + "," + Json.value("minecraft_uuid", p.getUniqueId().toString())
+                + "," + Json.value("minecraft_name", p.getName())
+                + "," + Json.value("merge_xp", local) + "}";
+        xpApi.post("/api/link", json).whenComplete((body, err) -> {
+            if (err != null || body.isEmpty()) {
+                sendSync(p, () -> p.sendMessage(ChatColor.RED + "Could not reach the XP service. Try again later."));
+                return;
+            }
+            String b = body.get();
+            boolean ok = "true".equals(Json.string(b, "success"));
+            if (!ok) {
+                String e = Json.string(b, "error");
+                sendSync(p, () -> p.sendMessage(ChatColor.RED + "Link failed: " + (e == null ? "unknown error" : e)));
+                return;
+            }
+            final long finalXp = Json.intValue(b, "xp");
+            final String picked = Json.string(b, "picked");
+            state.setLocalXp(p.getUniqueId(), 0); // XP now lives on the Discord side; avoid a future double-merge
+            sendSync(p, () -> {
+                p.sendMessage(ChatColor.GREEN + "✅ Bound! Minecraft → Discord " + id + " (XP account).");
+                if ("minecraft".equals(picked)) {
+                    p.sendMessage(ChatColor.GOLD + "Your Minecraft XP (" + local + ") was higher, so it was kept. 🎉");
+                } else {
+                    p.sendMessage(ChatColor.GRAY + "New XP balance: " + ChatColor.AQUA + finalXp);
+                }
+                p.sendMessage(ChatColor.GRAY + "This link overrides /linkaccount if they ever conflict.");
+            });
         });
     }
 

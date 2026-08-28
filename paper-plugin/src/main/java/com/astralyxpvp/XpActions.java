@@ -452,13 +452,24 @@ public final class XpActions {
             final String picked = Json.string(b, "picked");
             state.setLocalXp(p.getUniqueId(), 0); // XP now lives on the Discord side; avoid a future double-merge
             sendSync(p, () -> {
-                p.sendMessage(ChatColor.GREEN + "✅ Bound! Minecraft → Discord " + id + " (XP account).");
+                String mergeNote;
                 if ("minecraft".equals(picked)) {
-                    p.sendMessage(ChatColor.GOLD + "Your Minecraft XP (" + local + ") was higher, so it was kept. 🎉");
+                    String note = plugin.getConfig().getString("bind-merge-minecraft");
+                    mergeNote = note == null
+                            ? "\n&6Your " + local + " MC XP was higher — it's now your Discord balance! 💪"
+                            : "\n" + note.replace("{xp}", String.valueOf(local));
                 } else {
-                    p.sendMessage(ChatColor.GRAY + "New XP balance: " + ChatColor.AQUA + finalXp);
+                    String note = plugin.getConfig().getString("bind-keep-discord");
+                    mergeNote = note == null
+                            ? "\n&7Kept your existing Discord XP balance (" + finalXp + ")."
+                            : "\n" + note.replace("{xp}", String.valueOf(finalXp));
                 }
-                p.sendMessage(ChatColor.GRAY + "This link overrides /linkaccount if they ever conflict.");
+                String msg = plugin.getConfig().getString("bind-success",
+                        "&e[AstralyxXP] &aYour Minecraft account is now linked to Discord &7{discordId}&a!\n"
+                                + "&7Your XP syncs between Minecraft and Discord now.{merge_note}");
+                p.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                        msg.replace("{discordId}", id).replace("{merge_note}", mergeNote)));
+                p.sendMessage(ChatColor.GRAY + "Manual link overrides /linkaccount if they ever conflict.");
             });
         });
     }

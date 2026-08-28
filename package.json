@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --local",
+    "preview": "wrangler dev",
     "deploy": "wrangler deploy",
-    "register": "node src/register-commands.js"
+    "dry-run": "wrangler deploy --dry-run",
+    "check": "find src -name '*.js' -print0 | xargs -0 -n1 node --check && echo 'all files OK'",
+    "test": "node --check src/index.js && node .tests/test-games.mjs",
+    "register": "node src/register-commands.js",
+    "schema": "wrangler d1 execute astralyx-xp --remote --file=schema.sql",
+    "schema:local": "wrangler d1 execute astralyx-xp --local --file=schema.sql",
+    "plugin": "cd paper-plugin && mvn -q clean package",
+    "logs": "wrangler tail"
   },
   "dependencies": {
     "discord-interactions": "^4.4.0"

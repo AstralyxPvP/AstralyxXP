@@ -1,6 +1,35 @@
+# Dependencies
 node_modules/
+
+# Local Cloudflare state
 .wrangler/
 .dev.vars
+.vscode/
+.idea/
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Builds / output
 dist/
 paper-plugin/target/
+*.jar
+*.zip
+
+# Local AI assistant state (opencode / claude / cursor ...)
+.opencode/
+.claude/
+.agent/
+.cursor/
+
+# Notes & drafts
+*.md.tmp
+*.swp
+*~
+.tests/*.local.*
+
+# OS cruft
+.DS_Store
+Thumbs.db

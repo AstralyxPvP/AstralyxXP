@@ -7,11 +7,13 @@
 
 # AstralyxXP
 
-![AstralyxPvP Logo](https://astralyxpvp.pages.dev/Assets/logo.png)
+![AstralyxPvP Logo](https://www.astralyxpvp.int.yt/Assets/logo.png)
 
 **The official XP & Levels bot for AstralyxPvP** — earn XP through daily rewards, community engagement, and interactive minigames. Climb the levels, unlock ranks and in-game cosmetics, and prove your grind.
 
-Built on **Cloudflare Workers** with a **D1** database. Fully compatible with the [AstralyxPvP Minecraft server](https://astralyxpvp.pages.dev) and the in-game plugin via account linking.
+Built on **Cloudflare Workers** with a **D1** database. Fully compatible with the [AstralyxPvP Minecraft server](https://www.astralyxpvp.int.yt) and the in-game plugin via account linking.
+
+Part of the **[AstralyxPvP](https://github.com/AstralyxPvP) organization** — see the [site repo](https://github.com/AstralyxPvP/AstralyxPvP-site) for the web frontend.
 
 ## ⚔️ How It Works
 
@@ -32,8 +34,6 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
   - Fallen XP
   - Ladders
   - Luck Duck
-- **Community commands** — `/balance`, `/leaderboard`, `/transfer`.
-- **Staff tools** — grant or strip XP directly.
 - **In-game plugin** — a Paper plugin (`AstralyxXP.jar`) for linked & unlinked players:
   - `/xp`, `/balance`, `/daily` — view & claim from in-game.
   - `/coinflip`, `/slots`, `/transfer` — gamble and trade XP on the server.
@@ -42,7 +42,7 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
   - `/xp unlinked` — grind Minecraft-only XP that never syncs to Discord.
   - **Smart merge** — if a player grinds unlinked then links later, the higher of their Minecraft or Discord XP wins.
 
-## 📜 Commands
+## 📜 Discord Commands
 
 ### Everyone
 
@@ -54,6 +54,7 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
 | `/slots <amount>` | Bet XP on the slot machine. |
 | `/leaderboard [count]` | Top players by XP. |
 | `/transfer <user> <amount>` | Send XP to another player. |
+| `/minigame` | Kick off an XP minigame. |
 
 ### Staff only
 
@@ -63,7 +64,25 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
 | `/addxp <user> <amount>` | Add XP to a user. |
 | `/removexp <user> <amount>` | Remove XP (can't go below 0). |
 
-> Staff = Owner, Co-Owner, Chief Manager, Sr. Manager, Manager, Developer, Admin, Sr. Mod, Mod.
+> Staff = Owner, Co-Owner, Chief Manager, Sr. Manager, Manager, Sr. Developer, Developer, Jr. Developer, Admin, Sr. Mod, Mod, Jr. Mod, Helper, Trial.
+
+## ⛏️ In-Game Commands (Paper plugin)
+
+### Everyone
+
+| Command | Description |
+|---------|-------------|
+| `/xp` | View your XP & level. |
+| `/xp link` | Start the Discord link flow. |
+| `/xp bind <discordId>` | Manually link your XP account (overrides `/linkaccount`). |
+| `/xp unlinked` | Choose Minecraft-only XP (no `/link` later). |
+| `/xp claim` | Claim your daily XP reward in-game. |
+| `/balance` (`/bal`) | View your XP balance. |
+| `/daily` | Claim your daily XP reward. |
+| `/coinflip <heads\|tails> <amount>` (`/cf`, `/flip`) | Bet XP on a coin flip. |
+| `/slots <amount>` (`/slot`, `/casino`) | Play the one-armed bandit. |
+| `/transfer <player> <amount>` (`/pay`, `/give`) | Send XP to another online player. |
+| `/leaderboard [limit]` (`/lb`, `/top`) | Top Astralyx XP earners. |
 
 ## 🛠️ Tech Stack
 
@@ -72,21 +91,48 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
 - **Discord:** Interactions API (slash commands & components)
 - **Platform:** Paper 1.21 plugin for in-game XP commands
 - **Deployment:** GitHub Actions → `wrangler deploy` on every push to `main`
+- **Build tooling:** [GNU Make](https://www.gnu.org/software/make/) — one command for everything
 
 ## 🚀 Development
 
+### Setup
+
 ```bash
-npm install
-npx wrangler dev
+git clone https://github.com/AstralyxPvP/AstralyxXP.git
+cd AstralyxXP
+make setup        # npm install
+cp .env.example .dev.vars   # then fill in your secrets (NEVER commit this)
 ```
+
+### Quick reference
+
+```bash
+make dev          # run locally at http://localhost:8787 (local D1)
+make preview      # run locally against the remote D1
+make deploy       # manual deploy to Cloudflare
+make dry-run      # validate the worker without deploying
+make test         # syntax-check every src file + run unit tests
+make check        # node --check on all src/**/*.js
+make register     # register Discord slash commands (needs .dev.vars)
+make schema       # apply schema.sql to the PRODUCTION D1
+make schema-local # apply schema.sql to the LOCAL D1
+make plugin       # build the Paper plugin (paper-plugin/target)
+make plugin-install # build + copy jar into ../plugins/
+make logs         # tail live worker logs
+```
+
+Every shortcut is also an npm script (`npm run dev`, `npm run test`, `npm run schema`, …) — pick your flavor.
+
+Run `make help` to list all targets.
 
 Local bindings use `--local` storage by default; secrets go in `.dev.vars`.
 
 ## 🌐 Links
 
 - **Discord:** [discord.gg/u8BFrpRwEg](https://discord.gg/u8BFrpRwEg)
-- **Website:** [astralyxpvp.pages.dev](https://astralyxpvp.pages.dev)
+- **Website:** [www.astralyxpvp.int.yt](https://www.astralyxpvp.int.yt)
 - **Server IP:** `java.astralyxpvp.int.yt`
+- **Organization:** [AstralyxPvP](https://github.com/AstralyxPvP)
 - **Site Repo:** [AstralyxPvP/AstralyxPvP-site](https://github.com/AstralyxPvP/AstralyxPvP-site)
 
 ## 📄 License

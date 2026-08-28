@@ -46,6 +46,7 @@ public final class JoinListener implements Listener {
                         "&e[AstralyxXP] &fHey &e" + p.getName() + "&f!\n"
                                 + "&7Your Discord isn't linked to your Minecraft account yet.\n"
                                 + "&a/xp link &7- connect now, your XP syncs everywhere\n"
+                                + "&a/xp bind <discordId> &7- or link it manually (no code)\n"
                                 + "&b/xp unlinked &7- grind Minecraft-only XP (won't sync, no /link later)\n"
                                 + "&cWarning: &7unlinked XP never reaches your Discord, and staff must merge if you switch.")));
     }

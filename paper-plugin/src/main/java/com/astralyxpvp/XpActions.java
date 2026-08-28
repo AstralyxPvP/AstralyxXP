@@ -58,6 +58,7 @@ public final class XpActions {
                 plugin.getConfig().getString("pending-prompt",
                         "&e[AstralyxXP] &fYour account isn't connected to Discord yet.\n"
                                 + "&a/xp link &7- connect Discord now (XP syncs everywhere)\n"
+                                + "&a/xp bind <discordId> &7- link it manually (no code)\n"
                                 + "&b/xp unlinked &7- grind Minecraft-only XP (won't ever sync to Discord)\n"
                                 + "&cWarning: &7if you go unlinked, switching to linked later needs staff help.")));
     }
@@ -389,8 +390,8 @@ public final class XpActions {
                 sendSync(p, () -> p.sendMessage(ChatColor.translateAlternateColorCodes('&',
                         plugin.getConfig().getString("link-prompt",
                                 "&eTo link your account:\n"
-                                        + "&a1. &fRun &e/linkaccount &fin Minecraft\n"
-                                        + "&a2. &fUse &e/link <username> <code> &fin the AstralyxPvP Discord\n"
+                                        + "&a1. &fRun &e/linkaccount &fin Minecraft, then &e/link <username> <code> &fin the AstralyxPvP Discord\n"
+                                        + "&a2. &fManual: &e/xp bind <discordId> &7(links your XP account directly, no code)\n"
                                         + "&7Once linked, your XP syncs between Minecraft and Discord."))));
             }
         });

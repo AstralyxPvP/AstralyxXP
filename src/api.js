@@ -17,15 +17,45 @@ import { jsonResponse } from './utils/discord.js';
  * Handle API requests from the Minecraft plugin.
  */
 export async function handleAPI(request, env, url) {
+  const path = url.pathname;
+  const db = env.astralyx_xp;
+
+  // Public read-only endpoint used by the website's XP leaderboard.
+  if (path === '/api/leaderboard' && request.method === 'GET') {
+    const requestedLimit = Number(url.searchParams.get('limit') || '10');
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 100)
+      : 10;
+    const { results } = await db
+      .prepare(
+        'SELECT users.discord_id, users.xp, linked_accounts.minecraft_name FROM users LEFT JOIN linked_accounts ON linked_accounts.discord_id = users.discord_id WHERE users.xp > 0 ORDER BY users.xp DESC LIMIT ?'
+      )
+      .bind(limit)
+      .all();
+
+    const board = results.map((row, i) => ({
+      rank: i + 1,
+      discord_id: row.discord_id,
+      minecraft_name: row.minecraft_name,
+      xp: row.xp,
+      level: getLevel(row.xp),
+    }));
+
+    return new Response(JSON.stringify({ leaderboard: board }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=60',
+      },
+    });
+  }
+
   // Authenticate
   const authHeader = request.headers.get('Authorization');
   const expected = `Bearer ${env.API_SECRET}`;
   if (!env.API_SECRET || authHeader !== expected) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
-
-  const path = url.pathname;
-  const db = env.astralyx_xp;
 
   // GET /api/xp/:discordId
   const xpMatch = path.match(/^\/api\/xp\/(\d+)$/);
@@ -290,24 +320,6 @@ export async function handleAPI(request, env, url) {
       console.error('Transfer error:', error);
       return jsonResponse({ error: 'Transfer failed' }, 500);
     }
-  }
-
-  // GET /api/leaderboard?limit=10
-  if (path === '/api/leaderboard' && request.method === 'GET') {
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '10', 10), 50);
-    const { results } = await db
-      .prepare('SELECT discord_id, xp FROM users WHERE xp > 0 ORDER BY xp DESC LIMIT ?')
-      .bind(limit)
-      .all();
-
-    const board = results.map((row, i) => ({
-      rank: i + 1,
-      discord_id: row.discord_id,
-      xp: row.xp,
-      level: getLevel(row.xp),
-    }));
-
-    return jsonResponse({ leaderboard: board });
   }
 
   return jsonResponse({ error: 'Not found' }, 404);

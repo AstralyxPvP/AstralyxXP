@@ -41,6 +41,7 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
   - `/xp bind <discordId>` — manual XP-account link, no code (overrides `/linkaccount`).
   - `/xp unlinked` — grind Minecraft-only XP that never syncs to Discord.
   - **Smart merge** — if a player grinds unlinked then links later, the higher of their Minecraft or Discord XP wins.
+- **Website XP leaderboard** — the public, read-only `GET /api/leaderboard` endpoint powers XP rankings on the website; all other API routes remain authenticated.
 
 ## 📜 Discord Commands
 

@@ -115,7 +115,7 @@ export async function handleAPI(request, env, url) {
 
       await linkAccount(db, discord_id, minecraft_uuid, minecraft_name);
 
-      return jsonResponse({ success: true, xp: user.xp, picked, message: 'Account linked successfully' });
+      return jsonResponse({ success: 'true', xp: user.xp, picked, message: 'Account linked successfully' });
     } catch (error) {
       console.error('Link error:', error);
       return jsonResponse({ error: 'Failed to link account' }, 500);

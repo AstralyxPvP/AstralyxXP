@@ -38,6 +38,7 @@ dry-run:
 ## 🧪 test            : run worker JS syntax check + unit tests
 test: check
 	node .tests/test-games.mjs
+	node --test .tests/test-api-minecraft-rewards.mjs
 
 ## ✅ check           : syntax-check every src file
 check:

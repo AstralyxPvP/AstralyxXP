@@ -88,8 +88,130 @@ export async function handleAPI(request, env, url) {
       minecraft_name: linked.minecraft_name,
       xp: user.xp,
       level: progress.level,
+      next_level_xp: progress.nextThreshold,
+      progress: Math.round(progress.progress * 100),
       linked_at: linked.linked_at,
     });
+  }
+
+  // GET /api/minecraft/stats/:uuid — server-side counters for PAPI and scripts.
+  if (path.startsWith('/api/minecraft/stats/') && request.method === 'GET') {
+    const uuid = path.slice('/api/minecraft/stats/'.length);
+    if (!isMinecraftUuid(uuid)) {
+      return jsonResponse({ error: 'Invalid Minecraft UUID' }, 400);
+    }
+    const stats = await db.prepare(
+      'SELECT kills FROM minecraft_stats WHERE minecraft_uuid = ?'
+    ).bind(uuid).first();
+    return jsonResponse({ minecraft_uuid: uuid, kills: stats?.kills ?? 0 });
+  }
+
+  // POST /api/minecraft/reward — idempotent account XP reward from the Paper
+  // minigames plugin. Only linked Minecraft accounts receive shared XP.
+  if (path === '/api/minecraft/reward' && request.method === 'POST') {
+    try {
+      const { minecraft_uuid, event_id, amount, reason } = await request.json();
+      if (!isMinecraftUuid(minecraft_uuid) || !isRewardEventId(event_id)
+          || !Number.isSafeInteger(amount) || amount < 1 || amount > 5000
+          || !['minigame', 'script'].includes(reason)) {
+        return jsonResponse({ error: 'Invalid reward request' }, 400);
+      }
+
+      const linked = await getLinkedByUUID(db, minecraft_uuid);
+      if (!linked) {
+        return jsonResponse({ error: 'Link your Minecraft account before earning shared XP' }, 404);
+      }
+      await ensureUser(db, linked.discord_id);
+      const inserted = await db.prepare(
+        'INSERT OR IGNORE INTO minecraft_reward_events (minecraft_uuid, event_id, discord_id, reason, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(minecraft_uuid, event_id, linked.discord_id, reason, amount, new Date().toISOString()).run();
+      const user = await getUser(db, linked.discord_id);
+      const progress = getProgress(user.xp);
+
+      return jsonResponse({
+        success: true,
+        duplicate: inserted.meta?.changes === 0,
+        awarded: amount,
+        xp: user.xp,
+        level: progress.level,
+        next_level_xp: progress.nextThreshold,
+        progress: Math.round(progress.progress * 100),
+      });
+    } catch (error) {
+      console.error('Minecraft XP reward error:', error);
+      return jsonResponse({ error: 'Could not award Minecraft XP' }, 500);
+    }
+  }
+
+  // POST /api/minecraft/kill — atomically award PvP kill XP and any newly
+  // reached configured kill milestones. The event ID makes server retries safe.
+  if (path === '/api/minecraft/kill' && request.method === 'POST') {
+    try {
+      const { minecraft_uuid, victim_uuid, event_id, kill_xp, milestones } = await request.json();
+      if (!isMinecraftUuid(minecraft_uuid) || !isMinecraftUuid(victim_uuid)
+          || minecraft_uuid === victim_uuid || !isRewardEventId(event_id)
+          || !Number.isSafeInteger(kill_xp) || kill_xp < 1 || kill_xp > 100
+          || !Array.isArray(milestones) || milestones.length > 20
+          || milestones.some((milestone) => !milestone
+            || !Number.isSafeInteger(milestone.kills) || milestone.kills < 1
+            || !Number.isSafeInteger(milestone.xp) || milestone.xp < 1 || milestone.xp > 5000)
+          || new Set(milestones.map((milestone) => milestone.kills)).size !== milestones.length) {
+        return jsonResponse({ error: 'Invalid kill reward request' }, 400);
+      }
+
+      const linked = await getLinkedByUUID(db, minecraft_uuid);
+      if (!linked) {
+        return jsonResponse({ error: 'Link your Minecraft account before earning shared XP' }, 404);
+      }
+      await ensureUser(db, linked.discord_id);
+      const now = new Date().toISOString();
+      const statements = [
+        db.prepare(
+          "INSERT OR IGNORE INTO minecraft_reward_events (minecraft_uuid, event_id, discord_id, reason, amount, created_at) VALUES (?, ?, ?, 'kill', ?, ?)"
+        ).bind(minecraft_uuid, event_id, linked.discord_id, kill_xp, now),
+      ];
+
+      for (const milestone of milestones) {
+        const milestoneId = `achievement:${milestone.kills}`;
+        statements.push(db.prepare(
+          "INSERT OR IGNORE INTO minecraft_reward_events (minecraft_uuid, event_id, discord_id, reason, amount, created_at) SELECT ?, ?, ?, 'kill_milestone', ?, ? WHERE EXISTS (SELECT 1 FROM minecraft_reward_events WHERE minecraft_uuid = ? AND event_id = ? AND kills_after = ?)"
+        ).bind(
+          minecraft_uuid,
+          milestoneId,
+          linked.discord_id,
+          milestone.xp,
+          now,
+          minecraft_uuid,
+          event_id,
+          milestone.kills,
+        ));
+      }
+
+      const results = await db.batch(statements);
+      const killEvent = await db.prepare(
+        'SELECT kills_after FROM minecraft_reward_events WHERE minecraft_uuid = ? AND event_id = ?'
+      ).bind(minecraft_uuid, event_id).first();
+      const user = await getUser(db, linked.discord_id);
+      const progress = getProgress(user.xp);
+      const achievements = milestones
+        .filter((_, index) => results[index + 1]?.meta?.changes === 1)
+        .map(({ kills, xp }) => ({ kills, xp }));
+
+      return jsonResponse({
+        success: true,
+        duplicate: results[0]?.meta?.changes === 0,
+        kill_reward: kill_xp,
+        kills: killEvent?.kills_after ?? 0,
+        achievements,
+        xp: user.xp,
+        level: progress.level,
+        next_level_xp: progress.nextThreshold,
+        progress: Math.round(progress.progress * 100),
+      });
+    } catch (error) {
+      console.error('Minecraft kill XP error:', error);
+      return jsonResponse({ error: 'Could not award Minecraft kill XP' }, 500);
+    }
   }
 
   // POST /api/link — body: { discord_id, minecraft_uuid, minecraft_name, merge_xp? }
@@ -323,4 +445,13 @@ export async function handleAPI(request, env, url) {
   }
 
   return jsonResponse({ error: 'Not found' }, 404);
+}
+
+function isMinecraftUuid(value) {
+  return typeof value === 'string'
+    && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value);
+}
+
+function isRewardEventId(value) {
+  return typeof value === 'string' && /^[a-zA-Z0-9:_-]{1,160}$/.test(value);
 }

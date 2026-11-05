@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 /**
@@ -18,6 +19,9 @@ public final class XpActions {
     private static final String[] SLOT_SYMBOLS = {"🍒", "🍋", "🔔", "💎", "⭐", "7️⃣"};
     private static final SecureRandom RNG = new SecureRandom();
     private static final long DAY_MS = 24L * 60 * 60 * 1000;
+
+    private static final long WARNING_THROTTLE_MS = 60_000L;
+    private final java.util.Map<java.util.UUID, Long> lastWarningTimeByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final AstralyxXP plugin;
     private final LinkResolver links;
@@ -107,6 +111,212 @@ public final class XpActions {
             }
         });
         return f;
+    }
+
+    public void refreshXpCache(Player player) {
+        resolve(player).whenComplete((account, resolveError) -> {
+            if (resolveError != null || account == null) {
+                plugin.getLogger().warning("Could not resolve XP account for " + player.getName()
+                        + (resolveError == null ? "." : ": " + resolveError.getMessage()));
+                return;
+            }
+            if (account.mode == Mode.UNLINKED) {
+                sendSync(player, () -> updateCachedXp(player, state.localXp(player.getUniqueId())));
+                return;
+            }
+            if (account.mode != Mode.LINKED) {
+                sendSync(player, () -> XpSnapshot.remove(player.getUniqueId()));
+                return;
+            }
+
+            CompletableFuture<ApiClient.ApiResponse> xpResponse =
+                    xpApi.getDetailed("/api/xp/" + account.discordId);
+            CompletableFuture<ApiClient.ApiResponse> statsResponse =
+                    xpApi.getDetailed("/api/minecraft/stats/" + player.getUniqueId());
+            xpResponse.thenCombine(statsResponse, CachedAccountStats::new)
+                    .whenComplete((stats, error) -> {
+                if (error != null || stats == null || !stats.xpResponse.isSuccessful()) {
+                    long now = System.currentTimeMillis();
+                    Long lastWarning = lastWarningTimeByPlayer.get(player.getUniqueId());
+                    if (lastWarning == null || (now - lastWarning >= WARNING_THROTTLE_MS)) {
+                        lastWarningTimeByPlayer.put(player.getUniqueId(), now);
+                        String details;
+                        if (error != null) {
+                            details = error.getClass().getSimpleName() + ": " + error.getMessage();
+                        } else if (stats == null) {
+                            details = "API requests completed without response data";
+                        } else {
+                            details = responseFailure("XP lookup", stats.xpResponse) + "; "
+                                    + responseFailure("Minecraft stats lookup", stats.statsResponse);
+                        }
+                        plugin.getLogger().warning("Could not refresh Astralyx XP for "
+                                + player.getName() + ": " + details);
+                    }
+                    return;
+                }
+
+                // XP lookup succeeded; check if stats lookup failed
+                if (!stats.statsResponse.isSuccessful()) {
+                    long now = System.currentTimeMillis();
+                    Long lastWarning = lastWarningTimeByPlayer.get(player.getUniqueId());
+                    if (lastWarning == null || (now - lastWarning >= WARNING_THROTTLE_MS)) {
+                        lastWarningTimeByPlayer.put(player.getUniqueId(), now);
+                        plugin.getLogger().warning("Could not refresh Minecraft kill stats for "
+                                + player.getName() + ": " + responseFailure("Minecraft stats lookup", stats.statsResponse));
+                    }
+                }
+
+                long xp;
+                try {
+                    xp = Json.intValue(stats.xpResponse.body(), "xp");
+                } catch (RuntimeException parseError) {
+                    plugin.getLogger().warning("Could not parse Astralyx XP refresh response for "
+                            + player.getName() + ": " + parseError.getMessage());
+                    return;
+                }
+
+                long kills = 0L;
+                if (stats.statsResponse.isSuccessful()) {
+                    try {
+                        kills = Math.max(0L, Json.intValue(stats.statsResponse.body(), "kills"));
+                    } catch (RuntimeException ignored) {
+                        // Keep previous or 0 kills if stats body parse fails
+                    }
+                } else {
+                    XpSnapshot existing = XpSnapshot.get(player.getUniqueId());
+                    if (existing != null) {
+                        kills = existing.kills();
+                    }
+                }
+
+                final long finalKills = kills;
+                sendSync(player, () -> updateCachedXp(player, xp, finalKills));
+            });
+        });
+    }
+
+    private String responseFailure(String endpoint, ApiClient.ApiResponse response) {
+        if (response.isSuccessful()) {
+            return endpoint + " succeeded";
+        }
+        return endpoint + (response.statusCode() < 0
+                ? " failed: " + response.error()
+                : " returned HTTP " + response.statusCode());
+    }
+
+    public XpSnapshot cachedXp(Player player) {
+        return XpSnapshot.get(player.getUniqueId());
+    }
+
+    public void queryXp(CommandSender sender, Player target) {
+        resolve(target).whenComplete((account, resolveError) -> {
+            if (resolveError != null || account == null) {
+                sendSender(sender, () -> sender.sendMessage(ChatColor.RED + "Could not resolve that XP account."));
+                return;
+            }
+            if (account.mode == Mode.UNLINKED) {
+                long xp = state.localXp(target.getUniqueId());
+                sendSender(sender, () -> sender.sendMessage(ChatColor.GREEN + "ASTRALYXXP_XP "
+                        + target.getName() + " " + xp));
+                return;
+            }
+            if (account.mode != Mode.LINKED) {
+                sendSender(sender, () -> sender.sendMessage(ChatColor.RED
+                        + target.getName() + " has no available Astralyx XP account."));
+                return;
+            }
+            xpApi.get("/api/xp/" + account.discordId).whenComplete((body, error) -> {
+                if (error != null || body.isEmpty()) {
+                    sendSender(sender, () -> sender.sendMessage(ChatColor.RED + "Could not query Astralyx XP."));
+                    return;
+                }
+                long xp = Json.intValue(body.get(), "xp");
+                sendSender(sender, () -> sender.sendMessage(ChatColor.GREEN + "ASTRALYXXP_XP "
+                        + target.getName() + " " + xp));
+            });
+        });
+    }
+
+    public void giveXp(CommandSender sender, Player target, long amount) {
+        if (amount < 1 || amount > 5000) {
+            sendSender(sender, () -> sender.sendMessage(ChatColor.RED
+                    + "XP amount must be between 1 and 5000."));
+            return;
+        }
+        resolve(target).whenComplete((account, resolveError) -> {
+            if (resolveError != null || account == null) {
+                sendSender(sender, () -> sender.sendMessage(ChatColor.RED + "Could not resolve that XP account."));
+                return;
+            }
+            if (account.mode == Mode.UNLINKED) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    long oldXp = state.localXp(target.getUniqueId());
+                    long newXp = oldXp > Long.MAX_VALUE - amount ? Long.MAX_VALUE : oldXp + amount;
+                    state.setLocalXp(target.getUniqueId(), newXp);
+                    updateCachedXp(target, newXp);
+                    if (target.isOnline()) {
+                        target.sendMessage(ChatColor.GREEN + "You received " + amount + " Astralyx XP.");
+                    }
+                    sender.sendMessage(ChatColor.GREEN + "Gave " + amount
+                            + " Minecraft-only Astralyx XP to " + target.getName() + ".");
+                });
+                return;
+            }
+            if (account.mode != Mode.LINKED) {
+                sendSync(target, () -> promptPending(target));
+                sendSender(sender, () -> sender.sendMessage(ChatColor.RED
+                        + target.getName() + " needs to link an Astralyx XP account first."));
+                return;
+            }
+
+            String eventId = "script:" + java.util.UUID.randomUUID();
+            String json = "{" + Json.value("minecraft_uuid", target.getUniqueId().toString())
+                    + "," + Json.value("event_id", eventId)
+                    + "," + Json.value("amount", amount)
+                    + "," + Json.value("reason", "script") + "}";
+            xpApi.post("/api/minecraft/reward", json).whenComplete((body, error) -> {
+                if (error != null || body.isEmpty() || !"true".equals(Json.string(body.get(), "success"))) {
+                    sendSender(sender, () -> sender.sendMessage(ChatColor.RED
+                            + "Could not grant Astralyx XP. The XP service may need its schema update."));
+                    return;
+                }
+                long newXp = Json.intValue(body.get(), "xp");
+                sendSync(target, () -> {
+                    updateCachedXp(target, newXp);
+                    target.sendMessage(ChatColor.GREEN + "You received " + amount + " Astralyx XP.");
+                });
+                sendSender(sender, () -> sender.sendMessage(ChatColor.GREEN + "Gave " + amount
+                        + " Astralyx XP to " + target.getName() + "."));
+            });
+        });
+    }
+
+    private void updateCachedXp(Player player, long xp) {
+        XpSnapshot previous = XpSnapshot.get(player.getUniqueId());
+        updateCachedXp(player, xp, previous == null ? 0L : previous.kills());
+    }
+
+    private void updateCachedXp(Player player, long xp, long kills) {
+        XpSnapshot previous = XpSnapshot.get(player.getUniqueId());
+        XpSnapshot current = XpSnapshot.from(xp, kills);
+        XpSnapshot.put(player.getUniqueId(), current);
+        if (player.isOnline()) {
+            player.setLevel(current.level());
+            player.setExp((float) current.progress());
+        }
+        if (previous != null && current.level() > previous.level()) {
+            Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "★ " + player.getName()
+                    + " just leveled up! They reached Astralyx level " + current.level()
+                    + " (" + xp + " XP)!");
+        }
+    }
+
+    private record CachedAccountStats(ApiClient.ApiResponse xpResponse,
+                                      ApiClient.ApiResponse statsResponse) {
+    }
+
+    private void sendSender(CommandSender sender, Runnable action) {
+        plugin.getServer().getScheduler().runTask(plugin, action);
     }
 
     private void showView(Player p, long xp, int level, int next, int progress, boolean minecraftOnly) {

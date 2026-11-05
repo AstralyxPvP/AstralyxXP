@@ -4,6 +4,7 @@ main: com.astralyxpvp.AstralyxXP
 api-version: '1.21'
 description: In-game XP commands backed by the AstralyxPvP worker API. Works for linked (Discord-synced) and unlinked (Minecraft-only) players.
 author: AstralyxPvP
+softdepend: [PlaceholderAPI]
 commands:
   xp:
     description: View your Astralyx XP / level, or manage your link status.
@@ -36,7 +37,14 @@ commands:
     description: View the top Astralyx XP earners.
     usage: /leaderboard [limit]
     aliases: [lb, top]
+  astralyxxp:
+    description: Query or grant Astralyx account XP for server scripts.
+    usage: /astralyxxp <xp|givexp> <player> [amount]
+    permission: astralyxxp.admin
 permissions:
   astralyxxp.use:
     description: Allows use of AstralyxXP player commands.
     default: true
+  astralyxxp.admin:
+    description: Allows querying and granting Astralyx XP for server scripts.
+    default: op

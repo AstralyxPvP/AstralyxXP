@@ -85,6 +85,47 @@ Everything runs on **XP** — no coins, no pay-to-win. Every player starts at **
 | `/transfer <player> <amount>` (`/pay`, `/give`) | Send XP to another online player. |
 | `/leaderboard [limit]` (`/lb`, `/top`) | Top Astralyx XP earners. |
 
+### Skript and XP-bar integration
+
+The Paper plugin mirrors the Astralyx account level and within-level XP progress
+to Minecraft's level number and XP bar. It suppresses vanilla XP orb gains so
+the displayed bar remains an Astralyx XP display. Linked accounts sync from the
+XP service; the existing Minecraft-only `/xp unlinked` mode is also supported.
+
+With PlaceholderAPI installed, Skript can read these online-player placeholders
+using either the `%astralyx_*%` identifiers or the legacy `%astralyxxp_*%`
+identifiers:
+
+* `%astralyx_xp%` — total Astralyx XP
+* `%astralyx_level%` — Astralyx level
+* `%astralyx_progress%` — percent of progress toward the next level
+* `%astralyx_xp_into_level%` — XP earned within the current level
+* `%astralyx_xp_to_next_level%` — XP remaining to the next level
+* `%astralyx_kills%` — Minecraft PvP kills recorded for the linked account
+
+For Skript placeholder expressions, install a Skript addon that supports
+PlaceholderAPI placeholders (for example, Skript-Placeholders). The plugin
+refreshes its online-player XP and kill-stat cache every 30 seconds;
+placeholders are cached values and return empty until the first successful
+account sync. Kill counts come from the AstralyxXP worker's Minecraft reward
+records, so the D1 schema must be applied and the Paper plugin must be able to
+reach the worker.
+
+Skript can grant XP through the permission-protected command:
+
+```skript
+command /rewardxp <player> <number>:
+    permission: astralyxxp.admin
+    trigger:
+        execute console command "astralyxxp givexp %arg-1% %arg-2%"
+```
+
+`/astralyxxp xp <online-player>` prints the current numeric account balance to
+the sender. `/astralyxxp givexp <online-player> <amount>` grants 1–5000 XP.
+Both commands require `astralyxxp.admin` (default: operators); linked rewards
+are recorded by the authenticated AstralyxXP worker API, while `/xp unlinked`
+players receive Minecraft-only account XP.
+
 ## 🛠️ Tech Stack
 
 - **Runtime:** Cloudflare Workers (edge serverless)
